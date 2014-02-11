@@ -5,9 +5,10 @@ godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
 
 SOURCES = \
 	nagle.scm \
-	nagle/config.scm
+	nagle/config.scm \
+	nagle/packed-struct.scm
 
-EXTRA_DIST += env.in COPYING
+EXTRA_DIST += env.in COPYING examples
 
 TESTS = \
 	tests/basic.test
