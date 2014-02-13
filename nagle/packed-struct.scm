@@ -33,9 +33,11 @@
             make-packed-array
             packed-array-length
 
-            pack-each pack-each/serial
-            unpack-each unpack-each/serial
-            repack-each repack-each/serial
+            parallel-visit iota-visitor
+
+            pack-visitor pack-each pack-each/serial
+            unpack-visitor unpack-each unpack-each/serial
+            repack-visitor repack-each repack-each/serial
             ))
 
 (define-syntax-parameter struct-size (syntax-rules ()))
@@ -200,16 +202,19 @@
         (proc n)
         (lp (1+ n))))))
 
+(define-syntax-rule (pack-visitor bv type proc)
+  (iota-visitor
+   (lambda (n)
+     (call-with-values (lambda () (proc n))
+       (lambda args
+         (apply (packed-struct-packer type)
+                bv
+                (* n (packed-struct-size type))
+                args))))))
+
 (define-syntax-rule (pack-each* bv type proc nprocs)
   (parallel-visit (packed-array-length bv type)
-                  (iota-visitor
-                   (lambda (n)
-                     (call-with-values (lambda () (proc n))
-                       (lambda args
-                         (apply (packed-struct-packer type)
-                                bv
-                                (* n (packed-struct-size type))
-                                args)))))
+                  (pack-visitor bv type proc)
                   nprocs))
 
 (define-syntax-rule (pack-each bv type proc)
@@ -218,15 +223,18 @@
 (define-syntax-rule (pack-each/serial bv type proc)
   (pack-each* bv type proc 1))
 
+(define-syntax-rule (unpack-visitor bv type proc)
+  (iota-visitor
+   (lambda (n)
+     ((packed-struct-unpacker type)
+      bv
+      (* n (packed-struct-size type))
+      (lambda args
+        (apply proc n args))))))
+
 (define-syntax-rule (unpack-each* bv type proc nprocs)
   (parallel-visit (packed-array-length bv type)
-                  (iota-visitor
-                   (lambda (n)
-                     ((packed-struct-unpacker type)
-                      bv
-                      (* n (packed-struct-size type))
-                      (lambda args
-                        (apply proc n args)))))
+                  (unpack-visitor type proc)
                   nprocs))
 
 (define-syntax-rule (unpack-each bv type proc)
@@ -235,15 +243,21 @@
 (define-syntax-rule (unpack-each/serial bv type proc)
   (unpack-each* bv type proc 1))
 
+(define-syntax-rule (repack-visitor bv type proc)
+  (pack-visitor
+   bv
+   type
+   (lambda (n)
+     ((packed-struct-unpacker type)
+      bv
+      (* n (packed-struct-size type))
+      (lambda args
+        (apply proc n args))))))
+
 (define-syntax-rule (repack-each* bv type proc nprocs)
-  (pack-each* bv type
-              (lambda (n)
-                ((packed-struct-unpacker type)
-                 bv
-                 (* n (packed-struct-size type))
-                 (lambda args
-                   (apply proc n args))))
-              nprocs))
+  (parallel-visit (packed-array-length bv type)
+                  (repack-visitor bv type proc)
+                  nprocs))
 
 (define-syntax-rule (repack-each bv type proc)
   (repack-each* bv type proc (current-processor-count)))
