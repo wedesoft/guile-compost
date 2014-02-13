@@ -38,6 +38,13 @@
             repack-each repack-each/serial
             ))
 
+(define-syntax-parameter struct-size (syntax-rules ()))
+(define-syntax-parameter struct-offset (syntax-rules ()))
+(define-syntax-parameter struct-packer (syntax-rules ()))
+(define-syntax-parameter struct-unpacker (syntax-rules ()))
+(define-syntax-parameter struct-getter (syntax-rules ()))
+(define-syntax-parameter struct-setter (syntax-rules ()))
+
 (define-syntax define-packed-struct
   (lambda (stx)
     (define (stx-map-fold proc lst seed)
@@ -98,31 +105,34 @@
          (lambda (accessors byte-size)
            (with-syntax ((((field-offset field-ref field-set) ...) accessors)
                          (byte-size byte-size))
-             #`(define-inlinable (name method field)
-                 (case method
-                   ((size) byte-size)
-                   ((offset)
-                    (case field
+             #`(define-syntax name
+                 (syntax-rules (struct-size
+                                struct-offset
+                                struct-unpacker struct-packer
+                                struct-getter struct-setter)
+                   ((_ struct-size) byte-size)
+                   ((_ struct-offset field)
+                    (case 'field
                       ((field-name) field-offset)
                       ...
                       (else (error "unknown field" field))))
-                   ((unpacker)
+                   ((_ struct-unpacker)
                     (lambda (bv offset k)
                       (k (field-ref bv (+ offset field-offset))
                          ...)))
-                   ((packer)
+                   ((_ struct-packer)
                     (lambda (bv offset field-name ...)
                       (field-set bv (+ offset field-offset) field-name)
                       ...))
-                   ((getter)
-                    (case field
+                   ((_ struct-getter field)
+                    (case 'field
                       ((field-name)
                        (lambda (bv offset)
                          (field-ref bv (+ offset field-offset))))
                       ...
                       (else (error "unknown field" field))))
-                   ((setter)
-                    (case field
+                   ((_ struct-setter field)
+                    (case 'field
                       ((field-name)
                        (lambda (bv offset val)
                          (field-set bv (+ offset field-offset) val)))
@@ -130,22 +140,22 @@
                       (else (error "unknown field" field)))))))))))))
 
 (define-syntax-rule (packed-struct-size type)
-  (type 'size #f))
+  (type struct-size))
 
 (define-syntax-rule (packed-struct-offset type field)
-  (type 'offset 'field))
+  (type struct-offset field))
 
 (define-syntax-rule (packed-struct-getter type field)
-  (type 'getter 'field))
+  (type struct-getter field))
 
 (define-syntax-rule (packed-struct-setter type field)
-  (type 'setter 'field))
+  (type struct-setter field))
 
 (define-syntax-rule (packed-struct-unpacker type)
-  (type 'unpacker #f))
+  (type struct-unpacker))
 
 (define-syntax-rule (packed-struct-packer type)
-  (type 'packer #f))
+  (type struct-packer))
 
 (define-syntax-rule (unpack* bv offset type k)
   ((packed-struct-unpacker type) bv offset k))
@@ -165,8 +175,8 @@
 (define-syntax-rule (packed-array-length bv type)
   (/ (bytevector-length bv) (packed-struct-size type)))
 
-(define* (parallel-iota n proc #:optional (nprocs (current-processor-count)))
-  (let lp ((start 0) (end n) (nprocs nprocs))
+(define-syntax-rule (parallel-iota n* proc nprocs*)
+  (let lp ((start 0) (end n*) (nprocs nprocs*))
     (cond
      ((= start end))
      ((= nprocs 1)
