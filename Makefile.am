@@ -6,6 +6,7 @@ godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
 SOURCES = \
 	nagle.scm \
 	nagle/config.scm \
+	nagle/finagle.scm \
 	nagle/packed-struct.scm
 
 EXTRA_DIST += env.in COPYING examples
