@@ -80,7 +80,14 @@
   (format port "warning: optimized compile failed: ~?\n" message args))
 
 (define (known-primcall? op)
-  #t)
+  (memq op '(return
+             add sub mul div
+             add1 sub1
+             bytevector-length
+             bv-f32-ref bv-f32-set!
+             = < <= > >=
+             sqrt abs
+             eq?)))
 
 (define (assert-compilable-function fun)
   (define (visit-cont cont)
@@ -100,6 +107,9 @@
             (_
              (compilation-error "function has optional, rest, or keyword args"))))
          (($ $kreceive)
+          ;; wat.
+          #t
+          #;
           (compilation-error "function calls other non-primitive functions"))
          (($ $kif) #t)))))
   (define (visit-term term)
