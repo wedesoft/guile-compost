@@ -10,7 +10,8 @@ SOURCES = \
 	compost/runtime.scm \
 	compost/packed-struct.scm \
 	compost/syntax.scm \
-	compost/type-inference.scm
+	compost/type-inference.scm \
+	compost/types.scm
 
 EXTRA_DIST += env.in COPYING examples
 
