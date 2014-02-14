@@ -44,7 +44,9 @@
             &fixnum &bignum &flonum &fracnum &compnum
 
             constant-type
-            primcall-result-type))
+            primcall-result-type
+
+            type-representations))
 
 (define-syntax define-types
   (lambda (x)
@@ -147,3 +149,29 @@
     (((or '= '< '<= '> '>= 'eq?) a b) &boolean)
     (('sqrt x) &compnum)
     (('abs x) (logand x (lognot &complex) &generic-number))))
+
+(define (type-representations type)
+  (define (add-type name &type res)
+    (if (eqv? &type (logand type &type))
+        (cons name res)
+        res))
+  (define (add-numeric-types res)
+    (let ((type (logand type &generic-number)))
+      (if (zero? type)
+          res
+          (cons
+           (cond
+            ((eqv? type &fixnum) 'fixnum)
+            ((eqv? type &flonum) 'flonum)
+            ((eqv? type &bignum) 'bignum)
+            (else 'number))
+           res))))
+  (add-numeric-types
+   (add-type
+    'boolean &boolean
+    (add-type
+     'unspecified &unspecified
+     (add-type
+      'bytevector &bytevector
+      '())))))
+

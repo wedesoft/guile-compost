@@ -158,7 +158,7 @@ mapping symbols to types."
            (else
             (let ((ret (make-hash-table)))
               (hash-for-each (lambda (sym idx)
-                               (hashq-set! ret sym (pk sym (vector-ref typev idx))))
+                               (pk sym (type-representations (vector-ref typev idx)))
+                               (hashq-set! ret sym (vector-ref typev idx)))
                              var-map)
               ret))))))))
-
