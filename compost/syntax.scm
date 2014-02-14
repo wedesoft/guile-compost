@@ -26,18 +26,24 @@
   #:use-module (compost runtime)
   #:export (lambda/compost define/compost))
 
-(define-syntax-rule (define/compost (proc arg ...) body ...)
-  (define proc (lambda/compost (arg ...) #((name . proc)) body ...)))
+(define-syntax-rule (define/compost (proc arg+guard ...) body ...)
+  (define proc (lambda/compost proc (arg+guard ...) body ...)))
 
 (define-syntax lambda/compost
   (lambda (x)
     (syntax-case x ()
-      ((lambda/compost (arg ...) body body* ...)
+      ((lambda/compost name* ((arg guard) ...) body body* ...)
        (let ((proc #'(lambda (arg ...) body body* ...)))
-         #`(load/compost
-            #,(datum->syntax #'lambda/compost
-                             (compile/compost
-                              (syntax->datum proc)
-                              (current-module)
-                              (syntax-source x)))
-            #,proc))))))
+         #`(lambda (arg ...)
+             #((name . name*))
+             (unless (guard arg)
+               (error "pre-condition failed" 'guard 'arg))
+             ...
+             (load/compost
+              #,(datum->syntax #'lambda/compost
+                               (compile/compost
+                                (syntax->datum proc)
+                                (syntax->datum #'(guard ...))
+                                (current-module)
+                                (syntax-source x)))
+              #,proc)))))))

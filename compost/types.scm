@@ -43,6 +43,8 @@
             ;; The 5 representations of numbers in Guile.
             &fixnum &bignum &flonum &fracnum &compnum
 
+            type-from-precondition
+
             constant-type
             primcall-result-type
 
@@ -102,6 +104,16 @@
 (define-syntax &compnum
   (identifier-syntax &generic-number))
 
+(define (type-from-precondition precondition)
+  (case precondition
+    ((bytevector?) &bytevector)
+    ((real?) &flonum)
+    ;; FIXME: there should be a predicate for indicating that something
+    ;; is a fixnum and not a bignum.  Perhaps we need our own predicates
+    ;; module.
+    ((exact-integer?) &fixnum)
+    (else &all-types)))
+
 (define (constant-type val)
   (cond
    ((number? val)
@@ -127,9 +139,11 @@
    ((bytevector? val) &bytevector)
    (else (error "unhandled constant" val))))
 
-(define (primcall-result-type op types)
+(define* (primcall-result-type op types #:key (allow-bignum-promotion? #t))
   (define &non-small-integer
-    (logior &non-fixnum-integer &non-register-integer))
+    (if allow-bignum-promotion?
+        (logior &non-fixnum-integer &non-register-integer)
+        &non-fixnum-integer))
   (match (cons op types)
     (((or 'add 'sub) a b)
      (logand (logior a b
@@ -147,7 +161,9 @@
     (('bytevector-length bv) &fixnum)
     (('bv-f32-ref bv offset) &flonum)
     (((or '= '< '<= '> '>= 'eq?) a b) &boolean)
-    (('sqrt x) &compnum)
+    (('sqrt x)
+     (logior &number &complex &inexact
+             &irrational &non-integer &non-small-integer))
     (('abs x) (logand x (lognot &complex) &generic-number))))
 
 (define (type-representations type)
@@ -156,15 +172,17 @@
         (cons name res)
         res))
   (define (add-numeric-types res)
+    (define &regnum (logior &number &non-fixnum-integer))
     (let ((type (logand type &generic-number)))
       (if (zero? type)
           res
           (cons
            (cond
-            ((eqv? type &fixnum) 'fixnum)
-            ((eqv? type &flonum) 'flonum)
-            ((eqv? type &bignum) 'bignum)
-            (else 'number))
+            ((zero? (logand type (lognot &fixnum))) 'fixnum)
+            ((zero? (logand type (lognot &regnum))) 'regnum)
+            ((zero? (logand type (lognot &bignum))) 'bignum)
+            ((zero? (logand type (lognot &flonum))) 'flonum)
+            (else 'compnum))
            res))))
   (add-numeric-types
    (add-type

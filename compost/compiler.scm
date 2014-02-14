@@ -136,7 +136,7 @@
     (($ $fun src meta () body)
      (visit-cont body))))
 
-(define (compile/compost exp env source)
+(define (compile/compost exp preconditions env source)
   (let ((cps ((@@ (language cps compile-bytecode) optimize)
               ((@@ (language cps compile-bytecode) fix-arities)
                (compile exp #:to 'cps #:env env))
@@ -149,7 +149,7 @@
          (let ((fun (extract-fun cps)))
            (assert-compilable-function fun)
            (let ((dfg (compute-dfg fun #:global? #f)))
-             (infer-types fun dfg)
+             (infer-types fun dfg preconditions)
              #f))))
      (lambda (k message args)
        (issue-compilation-warning (current-warning-port) message args source)

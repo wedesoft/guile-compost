@@ -19,7 +19,8 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (use-modules (compost packed-struct)
-             (compost syntax))
+             (compost syntax)
+             (rnrs bytevectors))
 
 (define-packed-struct particle
   (x float)
@@ -29,7 +30,10 @@
   (vy float)
   (vz float))
 
-(define/compost (update-particles-visitor particles dt start end)
+(define/compost (update-particles-visitor (particles bytevector?)
+                                          (dt real?)
+                                          (start exact-integer?)
+                                          (end exact-integer?))
   (let ((half-dt-squared (* 0.5 dt dt)))
     ((repack-visitor
       particles
