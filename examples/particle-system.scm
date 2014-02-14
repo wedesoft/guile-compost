@@ -71,50 +71,64 @@
 
   (gl-bind-buffer (version-1-5 array-buffer) 0))
 
+(define (update-quads-visitor particles start end)
+  ((unpack-visitor
+    particles
+    particle
+    (lambda (n x y z vx vy vz)
+      (let ((r (/ (abs vx) 5))
+            (g (/ (abs vy) 5))
+            (b (/ (abs vz) 5))
+            (x- (- x 0.5))
+            (y- (- y 0.5))
+            (x+ (+ x 0.5))
+            (y+ (+ y 0.5))
+            (base (* n 4)))
+        (pack *vertices* base color-vertex
+              x- y- z
+              r g b)
+        (pack *vertices* (+ base 1) color-vertex
+              x+ y- z
+              r g b)
+        (pack *vertices* (+ base 2) color-vertex
+              x+ y+ z
+              r g b)
+        (pack *vertices* (+ base 3) color-vertex
+              x- y+ z
+              r g b))))
+   start end))
+
 (define (update-quads)
-  (unpack-each
-   *particles*
-   particle
-   (lambda (n x y z vx vy vz)
-     (let ((r (/ (abs vx) 5))
-           (g (/ (abs vy) 5))
-           (b (/ (abs vz) 5))
-           (x- (- x 0.5))
-           (y- (- y 0.5))
-           (x+ (+ x 0.5))
-           (y+ (+ y 0.5))
-           (base (* n 4)))
-       (pack *vertices* base color-vertex
-             x- y- z
-             r g b)
-       (pack *vertices* (+ base 1) color-vertex
-             x+ y- z
-             r g b)
-       (pack *vertices* (+ base 2) color-vertex
-             x+ y+ z
-             r g b)
-       (pack *vertices* (+ base 3) color-vertex
-             x- y+ z
-             r g b)))))
+  (parallel-visit (packed-array-length *particles* particle)
+                  (lambda (start end)
+                    (update-quads-visitor *particles* start end))
+                  (current-processor-count)))
+
+(define (update-particles-visitor particles dt start end)
+  (let ((half-dt-squared (* 0.5 dt dt)))
+    ((repack-visitor
+      particles
+      particle
+      (lambda (n x y z vx vy vz)
+        (let* ((distance-squared (+ (* x x) (* y y) (* z z)))
+               (distance (sqrt distance-squared))
+               (F (/ -200 distance-squared))
+               (ax (* F (/ x distance)))
+               (ay (* F (/ y distance)))
+               (az (* F (/ z distance))))
+          (values (+ x (* vx dt) (* ax half-dt-squared))
+                  (+ y (* vy dt) (* ay half-dt-squared))
+                  (+ z (* vz dt) (* az half-dt-squared))
+                  (+ vx (* ax dt))
+                  (+ vy (* ay dt))
+                  (+ vz (* az dt))))))
+     start end)))
 
 (define (update-particles dt)
-  (let ((half-dt-squared (* 0.5 dt dt)))
-    (repack-each
-     *particles*
-     particle
-     (lambda (n x y z vx vy vz)
-       (let* ((distance-squared (+ (* x x) (* y y) (* z z)))
-              (distance (sqrt distance-squared))
-              (F (/ -200 distance-squared))
-              (ax (* F (/ x distance)))
-              (ay (* F (/ y distance)))
-              (az (* F (/ z distance))))
-         (values (+ x (* vx dt) (* ax half-dt-squared))
-                 (+ y (* vy dt) (* ay half-dt-squared))
-                 (+ z (* vz dt) (* az half-dt-squared))
-                 (+ vx (* ax dt))
-                 (+ vy (* ay dt))
-                 (+ vz (* az dt))))))))
+  (parallel-visit (packed-array-length *particles* particle)
+                  (lambda (start end)
+                    (update-particles-visitor *particles* dt start end))
+                  (current-processor-count)))
 
 (define (prepare-particles n)
   (set! *particles* (make-packed-array particle n))
