@@ -19,7 +19,7 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (use-modules (compost packed-struct)
-             (compost compiler))
+             (compost syntax))
 
 (define-packed-struct particle
   (x float)

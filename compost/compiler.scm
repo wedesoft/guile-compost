@@ -25,25 +25,8 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (system base compile)
-  #:use-module (system syntax)
   #:use-module (language cps)
-  #:export (lambda/compost define/compost))
-
-(define-syntax-rule (define/compost (proc arg ...) body ...)
-  (define proc (lambda/compost (arg ...) #((name . proc)) body ...)))
-
-(define-syntax lambda/compost
-  (lambda (x)
-    (syntax-case x ()
-      ((lambda/compost (arg ...) body body* ...)
-       (let ((proc #'(lambda (arg ...) body body* ...)))
-         #`(load/compost
-            #,(datum->syntax #'lambda/compost
-                             (compile/compost
-                              (syntax->datum proc)
-                              (current-module)
-                              (syntax-source x)))
-            #,proc))))))
+  #:export (compile/compost))
 
 (define compilation-error-prompt (make-parameter #f))
 
@@ -167,7 +150,3 @@
      (lambda (k message args)
        (issue-compilation-warning (current-warning-port) message args source)
        #f))))
-
-(define (load/compost native byte-compiled)
-  (pk 'load native byte-compiled)
-  byte-compiled)

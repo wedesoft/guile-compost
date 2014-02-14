@@ -7,6 +7,8 @@ SOURCES = \
 	compost.scm \
 	compost/config.scm \
 	compost/compiler.scm \
+	compost/runtime.scm \
+	compost/syntax.scm \
 	compost/packed-struct.scm
 
 EXTRA_DIST += env.in COPYING examples
