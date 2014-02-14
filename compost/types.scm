@@ -24,6 +24,7 @@
 (define-module (compost types)
   #:use-module (ice-9 match)
   #:use-module (rnrs bytevectors)
+  #:use-module (compost bitfield)
   #:export (&all-types
             &no-type
 
@@ -50,18 +51,8 @@
 
             type-representations))
 
-(define-syntax define-types
-  (lambda (x)
-    (syntax-case x ()
-      ((_ all name ...)
-       (with-syntax (((n ...) (iota (length #'(name ...)))))
-         #'(begin
-             (define-syntax name (identifier-syntax (ash 1 (* n 2))))
-             ...
-             (define-syntax all (identifier-syntax (logior name ...)))))))))
-
 ;; More precise types have fewer bits.
-(define-types &all-types
+(define-bitfield &all-types
   &number
   &inexact
   &complex

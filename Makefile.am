@@ -6,10 +6,12 @@ godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
 SOURCES = \
 	compost.scm \
 	compost/arities.scm \
+	compost/bitfield.scm \
 	compost/config.scm \
 	compost/compiler.scm \
 	compost/runtime.scm \
 	compost/packed-struct.scm \
+	compost/signs.scm \
 	compost/syntax.scm \
 	compost/type-inference.scm \
 	compost/types.scm

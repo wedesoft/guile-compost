@@ -25,6 +25,7 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
+  #:use-module (compost signs)
   #:use-module (compost types)
   #:use-module (language cps)
   #:use-module (language cps dfg)
@@ -106,6 +107,49 @@
                         ($ $kargs names syms))))))))
      syms)))
 
+(define (infer-result-signs cfa expv usev defv signv)
+  (define (adjoin-sign var sign)
+    (let* ((existing (vector-ref signv var))
+           (new (logior existing sign)))
+      (cond
+       ((eqv? existing new) #f)
+       (else
+        (vector-set! signv var new)
+        #t))))
+
+  (define (adjoin-signs vars signs)
+    (let lp ((vars vars) (signs signs) (changed? #f))
+      (if (null? vars)
+          changed?
+          (lp (cdr vars) (cdr signs)
+              (or (adjoin-sign (car vars) (car signs))
+                  changed?)))))
+
+  (let lp ((n 0) (changed? #f))
+    (cond
+     ((< n (cfa-k-count cfa))
+      (lp (1+ n)
+          (match (list (vector-ref expv n)
+                       (map (cut vector-ref signv <>)
+                            (vector-ref usev n))
+                       (vector-ref defv n))
+            ((#f () defs) #f) ; ?
+            ((($ $void) () (def))
+             (adjoin-sign def &all-signs))
+            ((($ $values) use-signs defs)
+             (adjoin-signs defs use-signs))
+            ((($ $const val) () (def))
+             (adjoin-sign def (constant-sign val)))
+            ((($ $primcall 'mul (a a)) (sign sign) (def))
+             (pk 'hi)
+             (adjoin-sign def (primcall-result-sign 'abs (list sign))))
+            ((($ $primcall op) use-signs (def))
+             (adjoin-sign def (primcall-result-sign op use-signs)))
+            ((($ $primcall op) use-signs ())
+             #t))))
+     (changed?
+      (lp 0 #f)))))
+
 (define* (infer-result-types cfa expv usev defv typev
                              #:key (allow-bignum-promotion? #t))
   (define (adjoin-type var type)
@@ -123,14 +167,6 @@
           changed?
           (lp (cdr vars) (cdr types)
               (or (adjoin-type (car vars) (car types))
-                  changed?)))))
-
-  (define (adjoin-unknown-types vars)
-    (let lp ((vars vars) (changed? #f))
-      (if (null? vars)
-          changed?
-          (lp (cdr vars)
-              (or (adjoin-type (car vars) &all-types)
                   changed?)))))
 
   (let lp ((n 0) (changed? #f))
@@ -166,17 +202,24 @@ mapping symbols to types."
              (expv (make-vector (cfa-k-count cfa) #f))
              (usev (make-vector (cfa-k-count cfa) '()))
              (defv (make-vector (cfa-k-count cfa) '()))
+             (signv (make-vector nvars &no-sign))
              (typev (make-vector nvars &no-type)))
         (populate-uses-and-defs fun cfa var-map expv usev defv)
         (for-each (lambda (arg precondition)
-                    (vector-set! typev (hashq-ref var-map arg)
-                                 (type-from-precondition precondition)))
+                    (let ((arg (hashq-ref var-map arg)))
+                      (vector-set! signv arg
+                                   (sign-from-precondition precondition))
+                      (vector-set! typev arg
+                                   (type-from-precondition precondition))))
                   (fun-arguments fun) preconditions)
+        (infer-result-signs cfa expv usev defv signv)
         (infer-result-types cfa expv usev defv typev
                             #:allow-bignum-promotion? #f)
         (let ((ret (make-hash-table)))
           (hash-for-each (lambda (sym idx)
-                           (pk sym (type-representations (vector-ref typev idx)))
+                           (pk sym (type-representations (vector-ref typev idx))
+                               (sign-representations (vector-ref signv idx))
+                               )
                            (hashq-set! ret sym (vector-ref typev idx)))
                          var-map)
           ret)))))
