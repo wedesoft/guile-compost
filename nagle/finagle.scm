@@ -27,20 +27,21 @@
   #:use-module (system base compile)
   #:use-module (system syntax)
   #:use-module (language cps)
-  #:export (finagle))
+  #:export (lambda/artifice define/artifice))
 
-(define-syntax finagle
+(define-syntax-rule (define/artifice (proc arg ...) body ...)
+  (define proc (lambda/artifice (arg ...) #((name . proc)) body ...)))
+
+(define-syntax lambda/artifice
   (lambda (x)
     (syntax-case x ()
-      ((finagle args body body* ...)
-       (let ((proc #'(lambda args body body* ...)))
-         #`(finagle-load
+      ((lambda/artifice (arg ...) body body* ...)
+       (let ((proc #'(lambda (arg ...) body body* ...)))
+         #`(load/artifice
             #,(datum->syntax #'finagle
-                             (finagle-compile
+                             (compile/artifice
                               (syntax->datum proc)
-                              (or (and=> (syntax-module #'finagle)
-                                         resolve-module)
-                                  (current-module))
+                              (current-module)
                               (syntax-source x)))
             #,proc))))))
 
@@ -49,7 +50,7 @@
 (define (compilation-error msg . args)
   (abort-to-prompt (compilation-error-prompt) msg args))
 
-(define (extract-fun cps)
+(define (extract-thunk-body cps k)
   (match cps
     (($ $fun _ _ ()
         ($ $cont _
@@ -58,17 +59,25 @@
               (($ $cont _
                   ($ $kclause ($ $arity () () #f () #f)
                      ($ $cont _
-                        ($ $kargs () ()
-                           ($ $letk
-                              (($ $cont kfun
-                                  ($ $kargs (_) (fun-sym)
-                                     ($ $continue ktail _
-                                        ($ $primcall 'return (fun-sym))))))
-                              ($ $continue kfun _
-                                 (and ($ $fun) fun)))))))))))
-     fun)
-    (_
-     (compilation-error "not a function with only primitive references"))))
+                        ($ $kargs () () body))))))))
+     (k body ktail))))
+
+(define (extract-fun cps)
+  (extract-thunk-body
+   cps
+   (lambda (body ktail)
+     (match body
+       (($ $letk
+           (($ $cont kfun
+               ($ $kargs (_) (fun-sym)
+                  ($ $continue ktail _
+                     ($ $primcall 'return (fun-sym))))))
+           ($ $continue kfun _
+              (and ($ $fun) fun)))
+        fun)
+       (_
+        (pk body)
+        (compilation-error "not a function with only primitive references"))))))
 
 (define (issue-compilation-warning port message args source)
   (display ";;; " port)
@@ -142,7 +151,7 @@
     (($ $fun src meta () body)
      (visit-cont body))))
 
-(define (finagle-compile exp env source)
+(define (compile/artifice exp env source)
   (let ((cps ((@@ (language cps compile-bytecode) optimize)
               ((@@ (language cps compile-bytecode) fix-arities)
                (compile exp #:to 'cps #:env env))
@@ -159,6 +168,6 @@
        (issue-compilation-warning (current-warning-port) message args source)
        #f))))
 
-(define (finagle-load native byte-compiled)
+(define (load/artifice native byte-compiled)
   (pk 'load native byte-compiled)
   byte-compiled)
