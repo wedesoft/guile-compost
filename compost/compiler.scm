@@ -1,12 +1,12 @@
-;;; nagle
+;;; compost
 ;;; Copyright (C) 2014 Andy Wingo <wingo@pobox.com>
 ;;; 
-;;; Nagle is free software: you can redistribute it and/or modify it
+;;; Compost is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;; 
-;;; Nagle is distributed in the hope that it will be useful, but WITHOUT
+;;; Compost is distributed in the hope that it will be useful, but WITHOUT
 ;;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 ;;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
 ;;; License for more details.
@@ -17,29 +17,29 @@
 
 ;;; Commentary:
 ;;
-;; Interface to the inner loop compiler.
+;; Interface to the leaf function compiler.
 ;;
 ;;; Code:
 
-(define-module (nagle finagle)
+(define-module (compost compiler)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (system base compile)
   #:use-module (system syntax)
   #:use-module (language cps)
-  #:export (lambda/artifice define/artifice))
+  #:export (lambda/compost define/compost))
 
-(define-syntax-rule (define/artifice (proc arg ...) body ...)
-  (define proc (lambda/artifice (arg ...) #((name . proc)) body ...)))
+(define-syntax-rule (define/compost (proc arg ...) body ...)
+  (define proc (lambda/compost (arg ...) #((name . proc)) body ...)))
 
-(define-syntax lambda/artifice
+(define-syntax lambda/compost
   (lambda (x)
     (syntax-case x ()
-      ((lambda/artifice (arg ...) body body* ...)
+      ((lambda/compost (arg ...) body body* ...)
        (let ((proc #'(lambda (arg ...) body body* ...)))
-         #`(load/artifice
-            #,(datum->syntax #'finagle
-                             (compile/artifice
+         #`(load/compost
+            #,(datum->syntax #'lambda/compost
+                             (compile/compost
                               (syntax->datum proc)
                               (current-module)
                               (syntax-source x)))
@@ -151,7 +151,7 @@
     (($ $fun src meta () body)
      (visit-cont body))))
 
-(define (compile/artifice exp env source)
+(define (compile/compost exp env source)
   (let ((cps ((@@ (language cps compile-bytecode) optimize)
               ((@@ (language cps compile-bytecode) fix-arities)
                (compile exp #:to 'cps #:env env))
@@ -168,6 +168,6 @@
        (issue-compilation-warning (current-warning-port) message args source)
        #f))))
 
-(define (load/artifice native byte-compiled)
+(define (load/compost native byte-compiled)
   (pk 'load native byte-compiled)
   byte-compiled)

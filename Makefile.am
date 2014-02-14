@@ -4,10 +4,10 @@ moddir=$(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
 godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
 
 SOURCES = \
-	nagle.scm \
-	nagle/config.scm \
-	nagle/finagle.scm \
-	nagle/packed-struct.scm
+	compost.scm \
+	compost/config.scm \
+	compost/compiler.scm \
+	compost/packed-struct.scm
 
 EXTRA_DIST += env.in COPYING examples
 

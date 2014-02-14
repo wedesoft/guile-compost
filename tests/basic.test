@@ -1,12 +1,12 @@
-;;; nagle -- basic.test     -*- mode: scheme; coding: utf-8; -*-
+;;; compost -- basic.test     -*- mode: scheme; coding: utf-8; -*-
 ;;; Copyright (C) 2014 Andy Wingo <wingo@pobox.com>
 ;;; 
-;;; Nagle is free software: you can redistribute it and/or modify it
+;;; Compost is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;; 
-;;; Nagle is distributed in the hope that it will be useful, but WITHOUT
+;;; Compost is distributed in the hope that it will be useful, but WITHOUT
 ;;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 ;;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
 ;;; License for more details.
@@ -17,12 +17,12 @@
 
 ;;; Commentary:
 ;;
-;; Nagle is the Native GL Engine.
+;; Compost is a leaf function compiler for Guile.
 ;;
 ;;; Code:
 
 (define-module (tests basic-test)
   #:use-module (ice-9 format)
-  #:use-module (nagle))
+  #:use-module (compost))
 
 (exit 0)

@@ -8,6 +8,6 @@
 *.go
 /config.status
 /Makefile
-/nagle/config.scm
+/compost/config.scm
 /env
 /build-aux/test-driver
