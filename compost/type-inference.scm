@@ -97,6 +97,104 @@
     (($ $fun src meta () body)
      (visit-cont body))))
 
+(define (infer-result-types cfa expv usev defv typev)
+  (define (adjoin-type var type)
+    (let* ((existing (vector-ref typev var))
+           (new (logior existing type)))
+      (cond
+       ((eqv? existing new) #f)
+       (else
+        (vector-set! typev var new)
+        #t))))
+
+  (define (adjoin-types vars types)
+    (let lp ((vars vars) (types types) (changed? #f))
+      (if (null? vars)
+          changed?
+          (lp (cdr vars) (cdr types)
+              (or (adjoin-type (car vars) (car types))
+                  changed?)))))
+
+  (define (adjoin-unknown-types vars)
+    (let lp ((vars vars) (changed? #f))
+      (if (null? vars)
+          changed?
+          (lp (cdr vars)
+              (or (adjoin-type (car vars) &all-types)
+                  changed?)))))
+
+  (let lp ((n 0) (changed? #f))
+    (cond
+     ((< n (cfa-k-count cfa))
+      (lp (1+ n)
+          (match (list (vector-ref expv n)
+                       (map (cut vector-ref typev <>)
+                            (vector-ref usev n))
+                       (vector-ref defv n))
+            ((#f () defs)
+             (adjoin-unknown-types defs))
+            ((($ $void) () (def))
+             (adjoin-type def &unspecified))
+            ((($ $values) use-types defs)
+             (adjoin-types defs use-types))
+            ((($ $const val) () (def))
+             (adjoin-type def (constant-type val)))
+            ((($ $primcall op) use-types (def))
+             (adjoin-type def (primcall-result-type op use-types)))
+            ((($ $primcall op) use-types ())
+             #t))))
+     (changed?
+      (lp 0 #f)))))
+
+(define (infer-result-types cfa expv usev defv typev)
+  (define (adjoin-type var type)
+    (let* ((existing (vector-ref typev var))
+           (new (logior existing type)))
+      (cond
+       ((eqv? existing new) #f)
+       (else
+        (vector-set! typev var new)
+        #t))))
+
+  (define (adjoin-types vars types)
+    (let lp ((vars vars) (types types) (changed? #f))
+      (if (null? vars)
+          changed?
+          (lp (cdr vars) (cdr types)
+              (or (adjoin-type (car vars) (car types))
+                  changed?)))))
+
+  (define (adjoin-unknown-types vars)
+    (let lp ((vars vars) (changed? #f))
+      (if (null? vars)
+          changed?
+          (lp (cdr vars)
+              (or (adjoin-type (car vars) &all-types)
+                  changed?)))))
+
+  (let lp ((n 0) (changed? #f))
+    (cond
+     ((< n (cfa-k-count cfa))
+      (lp (1+ n)
+          (match (list (vector-ref expv n)
+                       (map (cut vector-ref typev <>)
+                            (vector-ref usev n))
+                       (vector-ref defv n))
+            ((#f () defs)
+             (adjoin-unknown-types defs))
+            ((($ $void) () (def))
+             (adjoin-type def &unspecified))
+            ((($ $values) use-types defs)
+             (adjoin-types defs use-types))
+            ((($ $const val) () (def))
+             (adjoin-type def (constant-type val)))
+            ((($ $primcall op) use-types (def))
+             (adjoin-type def (primcall-result-type op use-types)))
+            ((($ $primcall op) use-types ())
+             #t))))
+     (changed?
+      (lp 0 #f)))))
+
 (define (infer-types fun dfg)
   "Compute types for all variables in @var{fun}.  Returns a hash table
 mapping symbols to types."
@@ -107,58 +205,11 @@ mapping symbols to types."
              (usev (make-vector (cfa-k-count cfa) '()))
              (defv (make-vector (cfa-k-count cfa) '()))
              (typev (make-vector nvars &no-type)))
-        (define (adjoin-type var type)
-          (let ((existing (vector-ref typev var)))
-            (cond
-             ((eqv? existing type) #f)
-             (else
-              (vector-set! typev var (logior existing type))
-              #t))))
-
-        (define (adjoin-types vars types)
-          (let lp ((vars vars) (types types) (changed? #f))
-            (if (null? vars)
-                changed?
-                (lp (cdr vars) (cdr types)
-                    (or (adjoin-type (car vars) (car types))
-                        changed?)))))
-
-        (define (adjoin-unknown-types vars)
-          (let lp ((vars vars) (changed? #f))
-            (if (null? vars)
-                changed?
-                (lp (cdr vars)
-                    (or (adjoin-type (car vars) &all-types)
-                        changed?)))))
-
         (populate-uses-and-defs fun cfa var-map expv usev defv)
-
-        (let lp ((n 0) (changed? #f))
-          (cond
-           ((< n (cfa-k-count cfa))
-            (lp (1+ n)
-                (match (list (vector-ref expv n)
-                             (map (cut vector-ref typev <>)
-                                  (vector-ref usev n))
-                             (vector-ref defv n))
-                  ((#f () defs)
-                   (adjoin-unknown-types defs))
-                  ((($ $void) () (def))
-                   (adjoin-type def &unspecified))
-                  ((($ $values) use-types defs)
-                   (adjoin-types defs use-types))
-                  ((($ $const val) () (def))
-                   (adjoin-type def (constant-type val)))
-                  ((($ $primcall op) use-types (def))
-                   (adjoin-type def (primcall-result-type op use-types)))
-                  ((($ $primcall op) use-types ())
-                   #t))))
-           (changed?
-            (lp 0 #f))
-           (else
-            (let ((ret (make-hash-table)))
-              (hash-for-each (lambda (sym idx)
-                               (pk sym (type-representations (vector-ref typev idx)))
-                               (hashq-set! ret sym (vector-ref typev idx)))
-                             var-map)
-              ret))))))))
+        (infer-result-types cfa expv usev defv typev)
+        (let ((ret (make-hash-table)))
+          (hash-for-each (lambda (sym idx)
+                           (pk sym (type-representations (vector-ref typev idx)))
+                           (hashq-set! ret sym (vector-ref typev idx)))
+                         var-map)
+          ret)))))
