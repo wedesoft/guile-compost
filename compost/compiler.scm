@@ -27,6 +27,7 @@
   #:use-module (system base compile)
   #:use-module (language cps)
   #:use-module (language cps dfg)
+  #:use-module (compost arities)
   #:use-module (compost type-inference)
   #:export (compile/compost))
 
@@ -101,9 +102,6 @@
             (_
              (compilation-error "function has optional, rest, or keyword args"))))
          (($ $kreceive)
-          ;; wat.
-          #t
-          #;
           (compilation-error "function calls other non-primitive functions"))
          (($ $kif) #t)))))
   (define (visit-term term)
@@ -138,8 +136,7 @@
 
 (define (compile/compost exp preconditions env source)
   (let ((cps ((@@ (language cps compile-bytecode) optimize)
-              ((@@ (language cps compile-bytecode) fix-arities)
-               (compile exp #:to 'cps #:env env))
+              (fix-arities/compost (compile exp #:to 'cps #:env env))
               '()))
         (prompt (make-prompt-tag)))
     (call-with-prompt

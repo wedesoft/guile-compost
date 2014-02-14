@@ -46,7 +46,6 @@
             (visit-cont clause))
            (($ $kclause ($ $arity _ () #f () #f) body)
             (visit-cont body))
-           (($ $kreceive) #t)
            (($ $kif) #t)))))
     (define (visit-term term k)
       (match term
@@ -76,8 +75,6 @@
               (visit-cont clause))
              (($ $kclause ($ $arity _ () #f () #f) body)
               (visit-cont body))
-             ;; wat.
-             (($ $kreceive) #t)
              (($ $kif) #t)))))))
   (define (visit-term term k)
     (match term

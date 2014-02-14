@@ -5,6 +5,7 @@ godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
 
 SOURCES = \
 	compost.scm \
+	compost/arities.scm \
 	compost/config.scm \
 	compost/compiler.scm \
 	compost/runtime.scm \
