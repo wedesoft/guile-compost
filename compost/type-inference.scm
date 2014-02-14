@@ -141,7 +141,6 @@
             ((($ $const val) () (def))
              (adjoin-sign def (constant-sign val)))
             ((($ $primcall 'mul (a a)) (sign sign) (def))
-             (pk 'hi)
              (adjoin-sign def (primcall-result-sign 'abs (list sign))))
             ((($ $primcall op) use-signs (def))
              (adjoin-sign def (primcall-result-sign op use-signs)))
@@ -150,7 +149,7 @@
      (changed?
       (lp 0 #f)))))
 
-(define* (infer-result-types cfa expv usev defv typev
+(define* (infer-result-types cfa expv usev defv signv typev
                              #:key (allow-bignum-promotion? #t))
   (define (adjoin-type var type)
     (let* ((existing (vector-ref typev var))
@@ -184,6 +183,16 @@
              (adjoin-types defs use-types))
             ((($ $const val) () (def))
              (adjoin-type def (constant-type val)))
+            ((($ $primcall 'sqrt) (use-type) (def))
+             (match (map (cut vector-ref signv <>)
+                         (vector-ref usev n))
+               ((sign)
+                (let ((type (primcall-result-type 'sqrt (list use-type))))
+                  (adjoin-type def
+                               (if (or (not (zero? (logand use-type &complex)))
+                                       (not (zero? (logand sign &negative))))
+                                   type
+                                   (logand type (lognot &complex))))))))
             ((($ $primcall op) use-types (def))
              (adjoin-type def (primcall-result-type op use-types
                                                     #:allow-bignum-promotion?
@@ -213,7 +222,7 @@ mapping symbols to types."
                                    (type-from-precondition precondition))))
                   (fun-arguments fun) preconditions)
         (infer-result-signs cfa expv usev defv signv)
-        (infer-result-types cfa expv usev defv typev
+        (infer-result-types cfa expv usev defv signv typev
                             #:allow-bignum-promotion? #f)
         (let ((ret (make-hash-table)))
           (hash-for-each (lambda (sym idx)
