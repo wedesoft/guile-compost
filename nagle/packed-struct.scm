@@ -117,7 +117,7 @@
                     (case 'field
                       ((field-name) field-offset)
                       ...
-                      (else (error "unknown field" field))))
+                      (else (error "unknown field" 'field))))
                    ((_ struct-unpacker)
                     (lambda (bv offset k)
                       (k (field-ref bv (+ offset field-offset))
@@ -132,14 +132,14 @@
                        (lambda (bv offset)
                          (field-ref bv (+ offset field-offset))))
                       ...
-                      (else (error "unknown field" field))))
+                      (else (error "unknown field" 'field))))
                    ((_ struct-setter field)
                     (case 'field
                       ((field-name)
                        (lambda (bv offset val)
                          (field-set bv (+ offset field-offset) val)))
                       ...
-                      (else (error "unknown field" field)))))))))))))
+                      (else (error "unknown field" 'field)))))))))))))
 
 (define-syntax-rule (packed-struct-size type)
   (type struct-size))
