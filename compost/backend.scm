@@ -143,10 +143,7 @@
         (($ $kclause ($ $arity req () #f () #f))
          (let ((k (cfa-k-sym cfa n)))
            (emit-label asm k)
-           (emit-begin-arity asm req)
-           (let ((next (compile-body (1+ n))))
-             (emit-end-arity asm)
-             next)))))
+           (compile-body (1+ n))))))
 
     (define (compile-body n)
       (let compile-cont ((n n))
