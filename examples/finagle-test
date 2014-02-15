@@ -41,7 +41,7 @@
       (lambda (n x y z vx vy vz)
         (let* ((distance-squared (+ (* x x) (* y y) (* z z)))
                (distance (sqrt distance-squared))
-               (F (/ -200 distance-squared))
+               (F (/ -200.0 distance-squared))
                (ax (* F (/ x distance)))
                (ay (* F (/ y distance)))
                (az (* F (/ z distance))))
