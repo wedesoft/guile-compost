@@ -28,6 +28,7 @@
   #:use-module (language cps dfg)
   #:use-module (compost arities)
   #:use-module (compost error)
+  #:use-module (compost register-allocation)
   #:use-module (compost representations)
   #:use-module (compost type-check)
   #:use-module (compost type-inference)
@@ -136,4 +137,5 @@
            (check-types fun types)
            (let ((reprs (choose-representations types)))
              (check-representations fun reprs)
+             (allocate-registers fun dfg reprs)
              #f)))))))

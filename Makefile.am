@@ -10,6 +10,7 @@ SOURCES = \
 	compost/config.scm \
 	compost/compiler.scm \
 	compost/error.scm \
+	compost/register-allocation.scm \
 	compost/representations.scm \
 	compost/runtime.scm \
 	compost/packed-struct.scm \

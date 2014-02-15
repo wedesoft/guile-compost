@@ -30,6 +30,6 @@
       ((_ all name ...)
        (with-syntax (((n ...) (iota (length #'(name ...)))))
          #'(begin
-             (define-syntax name (identifier-syntax (ash 1 (* n 2))))
+             (define-syntax name (identifier-syntax (ash 1 n)))
              ...
              (define-syntax all (identifier-syntax (logior name ...)))))))))
