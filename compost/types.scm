@@ -49,7 +49,9 @@
             constant-type
             primcall-result-type
 
-            type-representations))
+            type-representations
+
+            primcall-argument-types))
 
 ;; More precise types have fewer bits.
 (define-bitfield &all-types
@@ -156,6 +158,19 @@
      (logior &number &complex &inexact
              &irrational &non-integer &non-small-integer))
     (('abs x) (logand x (lognot &complex) &generic-number))))
+
+(define (primcall-argument-types op)
+  (define &register-integer (logior &fixnum &non-fixnum-integer))
+  (match op
+    ((or 'add 'sub 'mul 'div) (list &flonum &flonum))
+    ((or 'add1 'sub1) (list &flonum))
+    ('bytevector-length (list &bytevector))
+    ('bv-f32-ref (list &bytevector &register-integer))
+    ('bv-f32-set! (list &bytevector &register-integer &flonum))
+    ((or '= '< '<= '> '>=) (list &flonum &flonum))
+    ('eq? (list &all-types &all-types))
+    ('sqrt (list &flonum))
+    ('abs (list &flonum))))
 
 (define (type-representations type)
   (define (add-type name &type res)

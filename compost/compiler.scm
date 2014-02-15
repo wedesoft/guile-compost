@@ -28,6 +28,7 @@
   #:use-module (language cps dfg)
   #:use-module (compost arities)
   #:use-module (compost error)
+  #:use-module (compost type-check)
   #:use-module (compost type-inference)
   #:export (compile/compost))
 
@@ -129,6 +130,7 @@
      (lambda ()
        (let ((fun (extract-fun cps)))
          (assert-compilable-function fun)
-         (let ((dfg (compute-dfg fun #:global? #f)))
-           (infer-types fun dfg preconditions)
+         (let* ((dfg (compute-dfg fun #:global? #f))
+                (types (infer-types fun dfg preconditions)))
+           (check-types fun types)
            #f))))))

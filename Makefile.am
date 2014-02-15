@@ -14,6 +14,7 @@ SOURCES = \
 	compost/packed-struct.scm \
 	compost/signs.scm \
 	compost/syntax.scm \
+	compost/type-check.scm \
 	compost/type-inference.scm \
 	compost/types.scm
 
