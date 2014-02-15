@@ -32,17 +32,7 @@
   #:use-module (language cps dfg)
   #:use-module (compost bitfield)
   #:use-module (compost error)
-  #:export (&registers
-            register-name
-
-            &rax &rcx &rdx &rsi &rdi &r8 &r9 &r10 &r11
-
-            &xmm0 &xmm1 &xmm2 &xmm3 &xmm4 &xmm5 &xmm6 &xmm7
-            &xmm8 &xmm9 &xmm10 &xmm11 &xmm12 &xmm13 &xmm14 &xmm15
-
-            &gpr &fpr &all-registers
-
-            allocate-registers
+  #:export (allocate-registers
             lookup-register
             lookup-maybe-register
             lookup-constant-value
@@ -111,7 +101,8 @@
 (define (lookup-maybe-register sym allocation)
   (match allocation
     (($ $allocation dfa regs)
-     (vector-ref regs (dfa-var-idx dfa sym)))))
+     (and=> (vector-ref regs (dfa-var-idx dfa sym))
+            register-name))))
 
 (define (lookup-register sym allocation)
   (or (lookup-maybe-register sym allocation)
@@ -265,17 +256,21 @@ are comparable with eqv?.  A tmp reg may be used."
         (match (cons src dst)
           ((() . ())
            (append (parallel-move (reverse gpr-src) (reverse gpr-dst)
-                                  (compute-tmp-reg live &gpr))
+                                  (register-name
+                                   (compute-tmp-reg live &gpr)))
                    (parallel-move (reverse fpr-src) (reverse fpr-dst)
-                                  (compute-tmp-reg live &fpr))))
+                                  (register-name
+                                   (compute-tmp-reg live &fpr)))))
           (((src . src*) . (dst . dst*))
            (if (< src &xmm0)
                (lp src* dst*
-                   (cons src gpr-src) (cons dst gpr-dst)
+                   (cons (register-name src) gpr-src)
+                   (cons (register-name dst) gpr-dst)
                    fpr-src fpr-dst)
                (lp src* dst*
                    gpr-src gpr-dst
-                   (cons src fpr-src) (cons dst fpr-dst)))))))
+                   (cons (register-name src) fpr-src)
+                   (cons (register-name dst) fpr-dst)))))))
 
     ;; Find variables that are actually constant.
     (define (compute-constants!)

@@ -118,7 +118,7 @@
       (lookup-constant-value sym allocation))
 
     (define (maybe-mov dst src)
-      (unless (= dst src)
+      (unless (eq? dst src)
         (emit-mov asm dst src)))
 
     (define (compile-entry meta)
