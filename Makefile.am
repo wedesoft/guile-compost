@@ -9,6 +9,7 @@ SOURCES = \
 	compost/bitfield.scm \
 	compost/config.scm \
 	compost/compiler.scm \
+	compost/error.scm \
 	compost/runtime.scm \
 	compost/packed-struct.scm \
 	compost/signs.scm \

@@ -23,18 +23,13 @@
 
 (define-module (compost compiler)
   #:use-module (ice-9 match)
-  #:use-module (ice-9 format)
   #:use-module (system base compile)
   #:use-module (language cps)
   #:use-module (language cps dfg)
   #:use-module (compost arities)
+  #:use-module (compost error)
   #:use-module (compost type-inference)
   #:export (compile/compost))
-
-(define compilation-error-prompt (make-parameter #f))
-
-(define (compilation-error msg . args)
-  (abort-to-prompt (compilation-error-prompt) msg args))
 
 (define (extract-thunk-body cps k)
   (match cps
@@ -64,15 +59,6 @@
        (_
         (pk body)
         (compilation-error "not a function with only primitive references"))))))
-
-(define (issue-compilation-warning port message args source)
-  (display ";;; " port)
-  (when source
-    (let ((filename (or (assq-ref source 'filename) "<unnamed port>"))
-          (line (assq-ref source 'line))
-          (col (assq-ref source 'column)))
-      (format port "~a:~a:~a: " filename (1+ line) col)))
-  (format port "warning: optimized compile failed: ~?\n" message args))
 
 (define (known-primcall? op)
   (memq op '(return
@@ -137,17 +123,12 @@
 (define (compile/compost exp preconditions env source)
   (let ((cps ((@@ (language cps compile-bytecode) optimize)
               (fix-arities/compost (compile exp #:to 'cps #:env env))
-              '()))
-        (prompt (make-prompt-tag)))
-    (call-with-prompt
-     prompt
+              '())))
+    (call-with-compilation-error-handling
+     source
      (lambda ()
-       (parameterize ((compilation-error-prompt prompt))
-         (let ((fun (extract-fun cps)))
-           (assert-compilable-function fun)
-           (let ((dfg (compute-dfg fun #:global? #f)))
-             (infer-types fun dfg preconditions)
-             #f))))
-     (lambda (k message args)
-       (issue-compilation-warning (current-warning-port) message args source)
-       #f))))
+       (let ((fun (extract-fun cps)))
+         (assert-compilable-function fun)
+         (let ((dfg (compute-dfg fun #:global? #f)))
+           (infer-types fun dfg preconditions)
+           #f))))))
