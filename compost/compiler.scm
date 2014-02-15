@@ -58,7 +58,7 @@
         fun)
        (_
         (pk body)
-        (compilation-error "not a function with only primitive references"))))))
+        (compilation-error #f "not a function with only primitive references"))))))
 
 (define (known-primcall? op)
   (memq op '(return
@@ -80,15 +80,15 @@
          (($ $kentry self tail clauses)
           (match clauses
             ((clause) (visit-cont clause))
-            (_ (compilation-error "function has more than one clause"))))
+            (_ (compilation-error #f "function has more than one clause"))))
          (($ $kclause arity body)
           (match arity
             (($ $arity _ () #f () #f)
              (visit-cont body))
             (_
-             (compilation-error "function has optional, rest, or keyword args"))))
+             (compilation-error #f "function has optional, rest, or keyword args"))))
          (($ $kreceive)
-          (compilation-error "function calls other non-primitive functions"))
+          (compilation-error #f "function calls other non-primitive functions"))
          (($ $kif) #t)))))
   (define (visit-term term)
     (match term
@@ -96,26 +96,26 @@
        (for-each visit-cont conts)
        (visit-term body))
       (($ $letrec names syms funs body)
-       (compilation-error "function contains closures"))
+       (compilation-error #f "function contains closures"))
       (($ $continue k src exp)
        (match exp
          ;; FIXME: void only supported in tail context
          ((or ($ $void) ($ $values)) #t)
          (($ $const val)
           (unless (number? val)
-            (compilation-error "non-numeric constant: ~a" val))
+            (compilation-error src "non-numeric constant: ~a" val))
           (unless (or (and (exact-integer? val)
                            (<= most-negative-fixnum val most-positive-fixnum))
                       (and (inexact? val) (real? val)))
-            (compilation-error "constant not a fixnum or flonum: ~a" val)))
+            (compilation-error src "constant not a fixnum or flonum: ~a" val)))
          (($ $primcall op)
           (unless (known-primcall? op)
-            (compilation-error "unhandled primcall: ~a" op)))
-         (($ $prim) (compilation-error "prim nodes unsupported"))
-         (($ $fun) (compilation-error "nested functions unsupported"))
+            (compilation-error src "unhandled primcall: ~a" op)))
+         (($ $prim) (compilation-error src "prim nodes unsupported"))
+         (($ $fun) (compilation-error src "nested functions unsupported"))
          ((or ($ $call) ($ $callk))
-          (compilation-error "nested calls unsupported"))
-         (($ $prompt) (compilation-error "prompts unsupported"))))))
+          (compilation-error src "nested calls unsupported"))
+         (($ $prompt) (compilation-error src "prompts unsupported"))))))
   (match fun
     (($ $fun src meta () body)
      (visit-cont body))))

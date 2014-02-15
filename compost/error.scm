@@ -28,10 +28,10 @@
 
 (define compilation-error-prompt (make-parameter #f))
 
-(define (compilation-error msg . args)
-  (abort-to-prompt (compilation-error-prompt) msg args))
+(define (compilation-error src msg . args)
+  (abort-to-prompt (compilation-error-prompt) src msg args))
 
-(define (issue-compilation-warning port message args source)
+(define (issue-compilation-warning port source message args)
   (display ";;; " port)
   (when source
     (let ((filename (or (assq-ref source 'filename) "<unnamed port>"))
@@ -47,6 +47,7 @@
      (lambda ()
        (parameterize ((compilation-error-prompt prompt))
          (proc)))
-     (lambda* (k message args #:optional (source default-source))
-       (issue-compilation-warning (current-warning-port) message args source)
+     (lambda* (k source message args)
+       (issue-compilation-warning (current-warning-port)
+                                  (or source default-source) message args)
        #f))))
