@@ -106,7 +106,6 @@
   (regs allocation-regs)
   (has-constv allocation-has-constv)
   (constant-values allocation-constant-values)
-  ;; k -> (gpr-moves . fpr-moves)
   (parallel-moves allocation-parallel-moves))
 
 (define (lookup-maybe-register sym allocation)
@@ -265,10 +264,10 @@ are comparable with eqv?.  A tmp reg may be used."
                (fpr-src '()) (fpr-dst '()))
         (match (cons src dst)
           ((() . ())
-           (cons (parallel-move (reverse gpr-src) (reverse gpr-dst)
-                                (compute-tmp-reg live &gpr))
-                 (parallel-move (reverse fpr-src) (reverse fpr-dst)
-                                (compute-tmp-reg live &fpr))))
+           (append (parallel-move (reverse gpr-src) (reverse gpr-dst)
+                                  (compute-tmp-reg live &gpr))
+                   (parallel-move (reverse fpr-src) (reverse fpr-dst)
+                                  (compute-tmp-reg live &fpr))))
           (((src . src*) . (dst . dst*))
            (if (< src &xmm0)
                (lp src* dst*
@@ -341,8 +340,7 @@ are comparable with eqv?.  A tmp reg may be used."
         (($ $ktail)
          (match uses
            (()
-            (hashq-set! parallel-moves label
-                        (solve-parallel-move '() '() pre-live)))
+            (hashq-set! parallel-moves label '()))
            ((use)
             (let* ((src-reg (vector-ref regs use))
                    (dst-reg (if (< src-reg &xmm0) &rax &xmm0))
@@ -357,7 +355,6 @@ are comparable with eqv?.  A tmp reg may be used."
                 (dst-vars (vector-ref defv (cfa-k-idx cfa k)))
                 (result-live (fold allocate! post-live dst-vars src-regs))
                 (dst-regs (map (cut vector-ref regs <>) dst-vars))
-                ;; FIXME: separate GPR and FPR moves
                 (moves (solve-parallel-move src-regs dst-regs
                                             (logior pre-live result-live))))
            (hashq-set! parallel-moves label moves)))
