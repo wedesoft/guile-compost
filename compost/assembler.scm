@@ -42,8 +42,14 @@
             emit-label
             emit-end-program
 
+            emit-add
+            emit-add1
+            emit-mul
+            emit-div
+            emit-sqrt
             emit-br
             emit-mov
+            emit-bv-f32-ref
             emit-bv-f32-set!
             emit-br-if-true
             emit-br-if-eq
@@ -191,7 +197,7 @@ byte."
 
 (define-inlinable (make-reloc label pos offset)
   "Make an internal relocation of referencing symbol @var{label},
-@var{offset} bytes after position @var{base}.  The signed 32-bit word at
+@var{offset} bytes after position @var{pos}.  The signed 32-bit word at
 position pos + offset will get patched up by the assembler, if the
 reference is within the same compilation unit, or by the assembler."
   (list label pos offset))
@@ -410,16 +416,144 @@ up later by the assembler."
                                                     (gp-register-code idx)
                                                     16)))
 
+(define (emit-addsd asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-u8 asm #xf2)
+    (emit-optional-rex32 asm dst b)
+    (emit-u8 asm #x0f)
+    (emit-u8 asm #x58)
+    (emit-sse-operand asm dst b))
+   ((eqv? dst b)
+    (emit-addsd asm dst b a))
+   (else
+    (emit-movsd asm dst a)
+    (emit-addsd asm dst dst b))))
+
+(define (emit-addq asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-rex64 asm dst b)
+    (emit-u8 asm #x03)
+    (emit-modrm asm b dst))
+   ((eqv? dst b)
+    (emit-addq asm dst b a))
+   (else
+    (emit-movq asm dst a)
+    (emit-addq asm dst dst b))))
+
+(define (emit-add asm dst a b)
+  (cond
+   ((xmm-register-code dst)
+    => (lambda (dst)
+         (emit-addsd asm dst (xmm-register-code a) (xmm-register-code b))))
+   (else
+    (emit-addq asm (gp-register-code dst)
+               (gp-register-code a)  (gp-register-code b)))))
+
+(define (emit-add1 asm dst a)
+  (let ((dst (gp-register-code dst))
+        (a (gp-register-code a)))
+    (unless (eqv? dst a)
+      (emit-movq asm dst a))
+    (emit-rex64 asm 0 dst)
+    (emit-u8 asm #xff)
+    (emit-modrm asm 0 dst)))
+
+(define (emit-mulsd asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-u8 asm #xf2)
+    (emit-optional-rex32 asm dst b)
+    (emit-u8 asm #x0f)
+    (emit-u8 asm #x59)
+    (emit-sse-operand asm dst b))
+   ((eqv? dst b)
+    (emit-mulsd asm dst b a))
+   (else
+    (emit-movsd asm dst a)
+    (emit-mulsd asm dst dst b))))
+
+(define (emit-imulq asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-rex64 asm dst b)
+    (emit-u8 asm #x0f)
+    (emit-u8 asm #xaf)
+    (emit-modrm asm dst b))
+   ((eqv? dst b)
+    (emit-imulq asm dst b a))
+   (else
+    (emit-movq asm dst a)
+    (emit-imulq asm dst dst b))))
+
+(define (emit-mul asm dst a b)
+  (cond
+   ((xmm-register-code dst)
+    => (lambda (dst)
+         (emit-mulsd asm dst (xmm-register-code a) (xmm-register-code b))))
+   (else
+    (emit-imulq asm (gp-register-code dst)
+                (gp-register-code a)  (gp-register-code b)))))
+
+(define (emit-divsd asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-u8 asm #xf2)
+    (emit-optional-rex32 asm dst b)
+    (emit-u8 asm #x0f)
+    (emit-u8 asm #x5e)
+    (emit-sse-operand asm dst b))
+   ((eqv? dst b)
+    (emit-divsd asm dst b a))
+   (else
+    (emit-movsd asm dst a)
+    (emit-divsd asm dst dst b))))
+
+(define (emit-div asm dst a b)
+  (emit-divsd asm (xmm-register-code dst)
+              (xmm-register-code a) (xmm-register-code b)))
+
+(define (emit-sqrtsd asm dst a)
+  (emit-u8 asm #xf2)
+  (emit-optional-rex32 asm dst a)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x51)
+  (emit-sse-operand asm dst a))
+
+(define (emit-sqrt asm dst a)
+  (emit-sqrtsd asm (xmm-register-code dst) (xmm-register-code a)))
+
+(define (emit-cmpq asm a b)
+  (emit-rex64 asm a b)
+  (emit-u8 asm #x3b)
+  (emit-modrm asm b a))
+
+(define (emit-jge asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x8d)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
+(define (emit-jl asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x8c)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
 (define (emit-br-if-true asm var invert? label)
-  (pk "unimplemented" 'br-if-true var))
+  (error "unimplemented" 'br-if-true var))
 (define (emit-br-if-eq asm a b invert? label)
-  (pk "unimplemented" 'br-if-eq a b))
+  (error "unimplemented" 'br-if-eq a b))
 (define (emit-br-if-< asm a b invert? label)
-  (pk "unimplemented" 'br-if-< a b))
+  (emit-cmpq asm (gp-register-code a) (gp-register-code b))
+  (if invert?
+      (emit-jge asm label)
+      (emit-jl asm label)))
 (define (emit-br-if-<= asm a b invert? label)
-  (pk "unimplemented" 'br-if-<= a b))
+  (error "unimplemented" 'br-if-<= a b))
 (define (emit-br-if-= asm a b invert? label)
-  (pk "unimplemented" 'br-if-= a b))
+  (error "unimplemented" 'br-if-= a b))
 
 (define (emit-return asm val)
   (unless (eq? val '&rax)

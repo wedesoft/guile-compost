@@ -148,9 +148,18 @@
          (emit-load-constant asm dst (object-address *unspecified*)))
         (($ $const exp)
          (emit-load-constant asm dst exp))
-        ;; all value-producing primcalls: fixme.
-        (($ $primcall op args)
-         (pk `(,op ,dst ,@(map reg args))))))
+        (($ $primcall 'add (a b))
+         (emit-add asm dst (reg a) (reg b)))
+        (($ $primcall 'mul (a b))
+         (emit-mul asm dst (reg a) (reg b)))
+        (($ $primcall 'sqrt (x))
+         (emit-sqrt asm dst (reg x)))
+        (($ $primcall 'div (a b))
+         (emit-div asm dst (reg a) (reg b)))
+        (($ $primcall 'add1 (a))
+         (emit-add1 asm dst (reg a)))
+        (($ $primcall 'bv-f32-ref (bv idx))
+         (emit-bv-f32-ref asm dst (reg bv) (reg idx)))))
 
     (define (compile-effect label exp k)
       (match exp
