@@ -40,7 +40,6 @@
             emit-begin-program
             emit-end-program
             emit-label
-            emit-end-program
 
             emit-add
             emit-add1
@@ -684,8 +683,8 @@ The offsets are expected to be expressed in bytes."
   (let ((buf (u64vector DT_STRTAB 0
                         DT_SYMTAB 0
                         DT_NULL 0))
-        (relocs (list (make-linker-reloc 'abs64/1 8 0 '.strtab)
-                      (make-linker-reloc 'abs64/1 24 0 '.symtab))))
+        (relocs (list (make-linker-reloc 'abs64/1 8 0 '.dynstr)
+                      (make-linker-reloc 'abs64/1 24 0 '.dynsym))))
     (make-object asm '.dynamic buf relocs '()
                  #:type SHT_DYNAMIC #:flags SHF_ALLOC)))
 
@@ -708,7 +707,8 @@ The offsets are expected to be expressed in bytes."
       (string-table-intern! strtab (if name (symbol->string name) "")))
     (for-each
      (lambda (meta n)
-       (let ((name (intern-string! (meta-name meta))))
+       (pk meta n)
+       (let ((name (intern-string! (pk 'name (meta-name meta)))))
          (write-elf-symbol bv (* n size) (endianness little) word-size
                            (make-elf-symbol
                             #:name name
@@ -718,13 +718,21 @@ The offsets are expected to be expressed in bytes."
                             #:visibility STV_DEFAULT
                             #:shndx (elf-section-index text-section)))))
      meta (iota n))
-    (let ((strtab (make-object asm '.strtab
+    (let ((strtab (make-object asm '.dynstr
                                (link-string-table! strtab)
                                '() '()
                                #:type SHT_STRTAB #:flags SHF_ALLOC)))
-      (values (make-object asm '.symtab
+      (values (make-object asm '.dynsym
                            bv
-                           '() '()
+                           (map (lambda (meta n)
+                                  (make-linker-reloc
+                                   'abs64/1
+                                   (+ (* n size)
+                                      (elf-symbol-value-offset word-size))
+                                   0
+                                   (meta-label meta)))
+                                meta (iota n))
+                           '()
                            #:type SHT_SYMTAB #:flags SHF_ALLOC #:entsize size
                            #:link (elf-section-index
                                    (linker-object-section strtab)))
@@ -1096,4 +1104,5 @@ The offsets are expected to be expressed in bytes."
 The result is a bytevector, by default linked so that read-only and
 writable data are on separate pages.  Pass @code{#:page-aligned? #f} to
 disable this behavior."
-  (link-elf (link-objects asm) #:page-aligned? #t #:machine-type EM_X86_64))
+  (link-elf (link-objects asm) #:page-aligned? #t
+            #:abi ELFOSABI_NONE #:machine-type EM_X86_64))

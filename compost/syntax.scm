@@ -33,7 +33,9 @@
   (lambda (x)
     (syntax-case x ()
       ((lambda/compost name* ((arg guard) ...) body body* ...)
-       (let ((proc #'(lambda (arg ...) body body* ...)))
+       (let ((proc #'(lambda (arg ...)
+                       #((name . name*))
+                       body body* ...)))
          #`(let ((proc
                   (load/compost
                    #,(datum->syntax #'lambda/compost
