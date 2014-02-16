@@ -324,7 +324,7 @@ up later by the assembler."
                        (logand b #x7))))
 
 (define (emit-movq asm dst src)
-  (emit-rex64 asm src dst)
+  (emit-rex64 asm dst src)
   (emit-u8 asm #x8b)
   (emit-modrm/reg asm dst src))
 
@@ -364,14 +364,10 @@ up later by the assembler."
     (unless (zero? rex-bits)
       (emit-u8 asm (logior #x40 rex-bits)))))
 
-(define (emit-sse-operand asm a b)
-  (emit-u8 asm (logior #x40
-                       (ash (logand a #x7) 3)
-                       (logand b #x7))))
-
 (define (emit-operand/mem asm code mem)
-  (let ((length (1- (bytevector-length mem))))
-    (emit-u8 asm (logior (bytevector-u8-ref mem 1) (ash code 3)))
+  (let ((length (bytevector-length mem)))
+    (emit-u8 asm (logior (bytevector-u8-ref mem 1)
+                         (ash (logand code #x7) 3)))
     (let lp ((n 2))
       (when (< n length)
         (emit-u8 asm (bytevector-u8-ref mem n))
@@ -382,7 +378,7 @@ up later by the assembler."
   (emit-optional-rex32 asm dst src)
   (emit-u8 asm #x0f)
   (emit-u8 asm #x5a)
-  (emit-sse-operand asm dst src))
+  (emit-modrm/reg asm dst src))
 
 (define (emit-cvtss2sd/mem asm dst mem)
   (emit-u8 asm #xf3)
@@ -403,7 +399,7 @@ up later by the assembler."
   (emit-optional-rex32 asm dst src)
   (emit-u8 asm #x0f)
   (emit-u8 asm #x10)
-  (emit-sse-operand asm dst src))
+  (emit-modrm/reg asm dst src))
 
 (define (emit-movsd/load asm dst label)
   (emit-u8 asm #xf2)
@@ -437,7 +433,7 @@ up later by the assembler."
     (emit-optional-rex32 asm dst b)
     (emit-u8 asm #x0f)
     (emit-u8 asm #x58)
-    (emit-sse-operand asm dst b))
+    (emit-modrm/reg asm dst b))
    ((eqv? dst b)
     (emit-addsd asm dst b a))
    (else
@@ -449,7 +445,7 @@ up later by the assembler."
    ((eqv? dst a)
     (emit-rex64 asm dst b)
     (emit-u8 asm #x03)
-    (emit-modrm/reg asm b dst))
+    (emit-modrm/reg asm dst b))
    ((eqv? dst b)
     (emit-addq asm dst b a))
    (else
@@ -481,7 +477,7 @@ up later by the assembler."
     (emit-optional-rex32 asm dst b)
     (emit-u8 asm #x0f)
     (emit-u8 asm #x59)
-    (emit-sse-operand asm dst b))
+    (emit-modrm/reg asm dst b))
    ((eqv? dst b)
     (emit-mulsd asm dst b a))
    (else
@@ -517,7 +513,7 @@ up later by the assembler."
     (emit-optional-rex32 asm dst b)
     (emit-u8 asm #x0f)
     (emit-u8 asm #x5e)
-    (emit-sse-operand asm dst b))
+    (emit-modrm/reg asm dst b))
    ((eqv? dst b)
     (emit-divsd asm dst b a))
    (else
@@ -533,7 +529,7 @@ up later by the assembler."
   (emit-optional-rex32 asm dst a)
   (emit-u8 asm #x0f)
   (emit-u8 asm #x51)
-  (emit-sse-operand asm dst a))
+  (emit-modrm/reg asm dst a))
 
 (define (emit-sqrt asm dst a)
   (emit-sqrtsd asm (xmm-register-code dst) (xmm-register-code a)))
