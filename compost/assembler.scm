@@ -50,8 +50,6 @@
             emit-br-if-<
             emit-br-if-<=
             emit-br-if-=
-            emit-br-if-<=
-            emit-br-if-<
             emit-return
             emit-return-void
             emit-load-constant
@@ -265,10 +263,10 @@ up later by the assembler."
    (&xmm15 . 15)))
 
 (define (gp-register-code reg)
-  (hashq-ref reg general-purpose-registers))
+  (hashq-ref general-purpose-registers reg))
 
 (define (xmm-register-code reg)
-  (hashq-ref reg xmm-registers))
+  (hashq-ref xmm-registers reg))
 
 (define (emit-u32 asm u32)
   (let ((bv (make-bytevector 4)))
@@ -279,7 +277,7 @@ up later by the assembler."
     (emit-u8 asm (bytevector-u8-ref bv 3))))
 
 (define (emit-u64 asm u64)
-  (let ((bv (make-bytevector 4)))
+  (let ((bv (make-bytevector 8)))
     (bytevector-u64-native-set! bv 0 u64)
     (emit-u8 asm (bytevector-u8-ref bv 0))
     (emit-u8 asm (bytevector-u8-ref bv 1))
@@ -413,24 +411,19 @@ up later by the assembler."
                                                     16)))
 
 (define (emit-br-if-true asm var invert? label)
-  (error "unimplemented"))
+  (pk "unimplemented" 'br-if-true var))
 (define (emit-br-if-eq asm a b invert? label)
-  (error "unimplemented"))
+  (pk "unimplemented" 'br-if-eq a b))
 (define (emit-br-if-< asm a b invert? label)
-  (error "unimplemented"))
+  (pk "unimplemented" 'br-if-< a b))
 (define (emit-br-if-<= asm a b invert? label)
-  (error "unimplemented"))
+  (pk "unimplemented" 'br-if-<= a b))
 (define (emit-br-if-= asm a b invert? label)
-  (error "unimplemented"))
-(define (emit-br-if-<= asm a b invert? label)
-  (error "unimplemented"))
-(define (emit-br-if-< asm a b invert? label)
-  (error "unimplemented"))
+  (pk "unimplemented" 'br-if-= a b))
 
 (define (emit-return asm val)
   (unless (eq? val '&rax)
-    (let ((val (gp-register-code val)))
-      (emit-mov asm '&rax val)))
+    (emit-mov asm '&rax val))
   (emit-return-void asm))
 
 (define (emit-return-void asm)
@@ -821,7 +814,7 @@ The offsets are expected to be expressed in bytes."
                (put-u8 line-port 5)
                (put-uleb128 line-port col))
 
-             (set-address '.rtl-text)
+             (set-address '.text)
 
              (let lp ((in out) (pc 0) (file 1) (line 1) (col 0))
                (match in

@@ -236,6 +236,7 @@ are comparable with eqv?.  A tmp reg may be used."
        ((vector-ref regs var-idx) => (cut add-live-reg <> live))
        (else
         (let ((reg (compute-reg live hint (vector-ref classes var-idx))))
+          #;
           (pk (dfa-var-sym dfa var-idx) (register-name reg))
           (vector-set! regs var-idx reg)
           (add-live-reg reg live)))))

@@ -139,5 +139,4 @@
            (let ((reprs (choose-representations types)))
              (check-representations fun reprs)
              (let ((allocation (allocate-registers fun dfg reprs)))
-               (emit-assembly fun dfg allocation)
-               #f))))))))
+               (emit-assembly fun dfg allocation)))))))))

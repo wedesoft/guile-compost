@@ -26,6 +26,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (language cps)
   #:use-module (language cps dfg)
+  #:use-module (compost assembler)
   #:use-module (compost error)
   #:use-module (compost register-allocation)
   #:export (emit-assembly))
@@ -42,68 +43,6 @@
        (($ $fun src meta free entry)
         entry)))
     contv))
-
-(define (make-assembler)
-  (make-variable '()))
-(define (emit! asm inst)
-  (pk inst)
-  (variable-set! asm (cons inst (variable-ref asm))))
-(define (link-assembly asm)
-  (reverse (variable-ref asm)))
-
-(define (emit-source asm src)
-  (emit! asm `(source ,src)))
-
-(define (emit-begin-program asm label meta)
-  (emit! asm `(begin-program ,label ,meta)))
-
-(define (emit-end-program asm)
-  (emit! asm `(end-program)))
-
-(define (emit-label asm label)
-  (emit! asm `(label ,label)))
-
-(define (emit-end-program asm)
-  (emit! asm `(end-program)))
-
-(define (emit-begin-arity asm req)
-  (emit! asm `(begin-arity ,req)))
-
-(define (emit-end-arity asm)
-  (emit! asm `(end-arity)))
-
-(define (emit-br asm k)
-  (emit! asm `(br ,k)))
-
-(define (emit-mov asm dst src)
-  (emit! asm `(mov ,dst ,src)))
-
-(define (emit-bv-f32-set! asm bv idx k)
-  (emit! asm `(bv-f32-set! ,bv ,idx ,k)))
-
-(define (emit-br-if-true asm sym invert? k)
-  (emit! asm `(br-if-true ,sym ,invert? k)))
-(define (emit-br-if-eq asm a b invert? k)
-  (emit! asm `(br-if-eq ,a ,b ,invert? k)))
-(define (emit-br-if-< asm a b invert? k)
-  (emit! asm `(br-if-< ,a ,b ,invert? k)))
-(define (emit-br-if-<= asm a b invert? k)
-  (emit! asm `(br-if-<= ,a ,b ,invert? k)))
-(define (emit-br-if-= asm a b invert? k)
-  (emit! asm `(br-if-= ,a ,b ,invert? k)))
-(define (emit-br-if-<= asm b a invert? k)
-  (emit! asm `(br-if-<= ,b ,a ,invert? k)))
-(define (emit-br-if-< asm b a invert? k)
-  (emit! asm `(br-if-< ,b ,a ,invert? k)))
-
-(define (emit-return asm val)
-  (emit! asm `(return ,val)))
-
-(define (emit-return-void asm)
-  (emit! asm `(return-void)))
-
-(define (emit-load-constant asm dst val)
-  (emit! asm `(load-constant ,dst ,val)))
 
 (define (compile-fun f asm dfg allocation)
   (let* ((cfa (analyze-control-flow f dfg))
@@ -205,12 +144,13 @@
         (($ $values (arg))
          (maybe-mov dst (reg arg)))
         (($ $void)
-         (emit-load-constant asm dst *unspecified*))
+         ;; wat.
+         (emit-load-constant asm dst (object-address *unspecified*)))
         (($ $const exp)
          (emit-load-constant asm dst exp))
         ;; all value-producing primcalls: fixme.
         (($ $primcall op args)
-         (emit! asm `(,op ,dst ,@(map reg args))))))
+         (pk `(,op ,dst ,@(map reg args))))))
 
     (define (compile-effect label exp k)
       (match exp
