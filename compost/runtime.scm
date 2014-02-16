@@ -22,8 +22,13 @@
 ;;; Code:
 
 (define-module (compost runtime)
+  #:use-module (ice-9 binary-ports)
   #:export (load/compost))
 
 (define (load/compost native byte-compiled)
-  (pk 'load native byte-compiled)
+  (when native
+    (call-with-output-file "/tmp/foo.so"
+      (lambda (proc)
+        (put-bytevector proc native))))
+  (pk 'load (and native 'native) byte-compiled)
   byte-compiled)
