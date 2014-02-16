@@ -34,16 +34,18 @@
     (syntax-case x ()
       ((lambda/compost name* ((arg guard) ...) body body* ...)
        (let ((proc #'(lambda (arg ...) body body* ...)))
-         #`(lambda (arg ...)
-             #((name . name*))
-             (unless (guard arg)
-               (error "pre-condition failed" 'guard 'arg))
-             ...
-             (load/compost
-              #,(datum->syntax #'lambda/compost
-                               (compile/compost
-                                (syntax->datum proc)
-                                (syntax->datum #'(guard ...))
-                                (current-module)
-                                (syntax-source x)))
-              #,proc)))))))
+         #`(let ((proc
+                  (load/compost
+                   #,(datum->syntax #'lambda/compost
+                                    (compile/compost
+                                     (syntax->datum proc)
+                                     (syntax->datum #'(guard ...))
+                                     (current-module)
+                                     (syntax-source x)))
+                   #,proc)))
+             (lambda (arg ...)
+               #((name . name*))
+               (unless (guard arg)
+                 (error "pre-condition failed" 'guard 'arg))
+               ...
+               (proc arg ...))))))))
