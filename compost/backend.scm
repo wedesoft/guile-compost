@@ -106,6 +106,7 @@
                (compile-cont (1+ n)))))))
 
     (define (compile-expression n k exp)
+      (pk exp)
       (let* ((label (cfa-k-sym cfa n))
              (k-idx (cfa-k-idx cfa k))
              (fallthrough? (= k-idx (1+ n))))

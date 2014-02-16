@@ -304,7 +304,21 @@ up later by the assembler."
                        (ash (logand a #x8) -1)
                        (ash (logand b #x8) -3))))
 
-(define (emit-modrm asm a b)
+(define (emit-modrm/disp0 asm a b)
+  (emit-u8 asm (logior (ash (logand a #x7) 3)
+                       (logand b #x7))))
+
+(define (emit-modrm/disp8 asm a b)
+  (emit-u8 asm (logior #x40
+                       (ash (logand a #x7) 3)
+                       (logand b #x7))))
+
+(define (emit-modrm/disp32 asm a b)
+  (emit-u8 asm (logior #x80
+                       (ash (logand a #x7) 3)
+                       (logand b #x7))))
+
+(define (emit-modrm/reg asm a b)
   (emit-u8 asm (logior #xc0
                        (ash (logand a #x7) 3)
                        (logand b #x7))))
@@ -312,7 +326,7 @@ up later by the assembler."
 (define (emit-movq asm dst src)
   (emit-rex64 asm src dst)
   (emit-u8 asm #x8b)
-  (emit-modrm asm dst src))
+  (emit-modrm/reg asm dst src))
 
 (define (emit-movq/imm asm dst bits)
   (emit-rex64 asm 0 dst)
@@ -396,7 +410,7 @@ up later by the assembler."
   (emit-optional-rex32 asm dst 0)
   (emit-u8 asm #x0f)
   (emit-u8 asm #x10)
-  (emit-sse-operand asm dst 0)
+  (emit-modrm/disp0 asm dst 5) ; ebp = 5
   (record-label-reference asm label 0)
   (emit-u32 asm 0))
 
@@ -435,7 +449,7 @@ up later by the assembler."
    ((eqv? dst a)
     (emit-rex64 asm dst b)
     (emit-u8 asm #x03)
-    (emit-modrm asm b dst))
+    (emit-modrm/reg asm b dst))
    ((eqv? dst b)
     (emit-addq asm dst b a))
    (else
@@ -458,7 +472,7 @@ up later by the assembler."
       (emit-movq asm dst a))
     (emit-rex64 asm 0 dst)
     (emit-u8 asm #xff)
-    (emit-modrm asm 0 dst)))
+    (emit-modrm/reg asm 0 dst)))
 
 (define (emit-mulsd asm dst a b)
   (cond
@@ -480,7 +494,7 @@ up later by the assembler."
     (emit-rex64 asm dst b)
     (emit-u8 asm #x0f)
     (emit-u8 asm #xaf)
-    (emit-modrm asm dst b))
+    (emit-modrm/reg asm dst b))
    ((eqv? dst b)
     (emit-imulq asm dst b a))
    (else
@@ -527,7 +541,7 @@ up later by the assembler."
 (define (emit-cmpq asm a b)
   (emit-rex64 asm a b)
   (emit-u8 asm #x3b)
-  (emit-modrm asm b a))
+  (emit-modrm/reg asm b a))
 
 (define (emit-jge asm label)
   (emit-u8 asm #x0f)
@@ -656,7 +670,8 @@ The offsets are expected to be expressed in bytes."
                          buf
                          (process-relocs buf (asm-relocs asm)
                                          (asm-labels asm))
-                         (process-labels (asm-labels asm))))
+                         (process-labels (asm-labels asm))
+                         #:flags (logior SHF_ALLOC SHF_EXECINSTR)))
           (let ((len *block-size*))
             (bytevector-copy! (car prev) 0 buf pos len)
             (lp (+ pos len) (cdr prev)))))))
@@ -1080,9 +1095,9 @@ The offsets are expected to be expressed in bytes."
 ;;; High-level public interfaces.
 ;;;
 
-(define* (link-assembly asm #:key (page-aligned? #t))
+(define (link-assembly asm)
   "Produce an ELF image from the code and data emitted into @var{asm}.
 The result is a bytevector, by default linked so that read-only and
 writable data are on separate pages.  Pass @code{#:page-aligned? #f} to
 disable this behavior."
-  (link-elf (link-objects asm) #:page-aligned? page-aligned?))
+  (link-elf (link-objects asm) #:page-aligned? #t #:machine-type EM_X86_64))
