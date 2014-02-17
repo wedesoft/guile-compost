@@ -706,16 +706,14 @@ The offsets are expected to be expressed in bytes."
 
 (define (elf-symbol-hash str)
   (let ((bv (string->utf8 str)))
-    (let lp ((h 0) (n 0))
+    (let lp ((hash 0) (n 0))
       (cond
        ((< n (bytevector-length bv))
-        (let* ((h (+ (logand (ash h 4) #xffffffff)
-                    (bytevector-u8-ref bv n)))
-               (g (logand h #xf0000000))
-               (h (if (zero? g) h (logxor h (ash g -24))))
-               (h (logand h (lognot g))))
-          (lp h (1+ n))))
-       (else h)))))
+        (let* ((hash (+ (ash hash 4) (bytevector-u8-ref bv n)))
+               (hi (logand hash #xf0000000))
+               (hash (logxor hash (ash hi -24))))
+          (lp hash (1+ n))))
+       (else (logand hash #x0fffffff))))))
 
 ;; ♥ ♥ ♥  peval completely unrolls this  ♥ ♥ ♥
 (define (choose-nbuckets n)
@@ -726,11 +724,8 @@ The offsets are expected to be expressed in bytes."
           (vector-ref sizes idx)
           (lp (1+ idx))))))
 
-(define (link-hash asm)
-  (let* ((word-size 8)
-         (names (cons "" (map (compose symbol->string meta-name)
-                              (reverse (asm-meta asm)))))
-         (nchains (length names))
+(define (make-elf-hash names)
+  (let* ((nchains (length names))
          (nbuckets (choose-nbuckets nchains))
          (bv (make-bytevector (* (+ 2 nchains nbuckets) 4) 0)))
     (define STN_UNDEF 0)
@@ -747,8 +742,15 @@ The offsets are expected to be expressed in bytes."
           (u32vector-set! bv (+ 2 bucket) n)
           (u32vector-set! bv (+ 2 nbuckets n) existing)
           (lp (1+ n) (cdr names)))))
-    (make-object asm '.hash bv '() '()
-                 #:type SHT_HASH #:flags SHF_ALLOC)))
+    bv))
+
+(define (link-hash asm)
+  (make-object asm '.hash
+               (make-elf-hash (cons ""
+                                    (map (compose symbol->string meta-name)
+                                         (reverse (asm-meta asm)))))
+               '() '()
+               #:type SHT_HASH #:flags SHF_ALLOC))
 
 (define (link-dynsym asm text-section)
   (let* ((word-size 8)
