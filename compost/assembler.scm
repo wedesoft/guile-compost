@@ -42,10 +42,12 @@
             emit-label
 
             emit-add
+            emit-sub
             emit-add1
             emit-mul
             emit-div
             emit-sqrt
+            emit-max
             emit-br
             emit-mov
             emit-bv-f32-ref
@@ -481,6 +483,41 @@ up later by the assembler."
     (emit-u8 asm #xff)
     (emit-modrm/reg asm 0 dst)))
 
+(define (emit-subsd asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-u8 asm #xf2)
+    (emit-optional-rex32 asm dst b)
+    (emit-u8 asm #x0f)
+    (emit-u8 asm #x5c)
+    (emit-modrm/reg asm dst b))
+   ((eqv? dst b)
+    (let ((tmp (xmm-register-code '&xmm15)))
+      (emit-movsd asm tmp b)
+      (emit-subsd asm dst a tmp)))
+   (else
+    (emit-movsd asm dst a)
+    (emit-subsd asm dst dst b))))
+
+(define (emit-subq asm dst a b)
+  (cond
+   ((eqv? dst a)
+    (emit-rex64 asm dst b)
+    (emit-u8 asm #x2b)
+    (emit-modrm/reg asm dst b))
+   (else
+    (emit-movq asm dst a)
+    (emit-subq asm dst dst b))))
+
+(define (emit-sub asm dst a b)
+  (cond
+   ((xmm-register-code dst)
+    => (lambda (dst)
+         (emit-subsd asm dst (xmm-register-code a) (xmm-register-code b))))
+   (else
+    (emit-subq asm (gp-register-code dst)
+               (gp-register-code a)  (gp-register-code b)))))
+
 (define (emit-mulsd asm dst a b)
   (cond
    ((eqv? dst a)
@@ -526,7 +563,9 @@ up later by the assembler."
     (emit-u8 asm #x5e)
     (emit-modrm/reg asm dst b))
    ((eqv? dst b)
-    (emit-divsd asm dst b a))
+    (let ((tmp (xmm-register-code '&xmm15)))
+      (emit-movsd asm tmp b)
+      (emit-divsd asm dst a tmp)))
    (else
     (emit-movsd asm dst a)
     (emit-divsd asm dst dst b))))
@@ -544,6 +583,23 @@ up later by the assembler."
 
 (define (emit-sqrt asm dst a)
   (emit-sqrtsd asm (xmm-register-code dst) (xmm-register-code a)))
+
+(define (emit-ucomisd asm dst a)
+  (emit-u8 asm #x66)
+  (emit-optional-rex32 asm dst a)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x2e)
+  (emit-modrm/reg asm dst a))
+
+(define (emit-maxsd asm dst a)
+  (emit-u8 asm #xf2)
+  (emit-optional-rex32 asm dst a)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x5f)
+  (emit-modrm/reg asm dst a))
+
+(define (emit-max asm dst a)
+  (emit-maxsd asm (xmm-register-code dst) (xmm-register-code a)))
 
 (define (emit-cmpq asm a b)
   (emit-rex64 asm a b)
@@ -574,15 +630,36 @@ up later by the assembler."
   (emit-u32 asm 0)
   (record-label-reference asm label -4))
 
+(define (emit-jae asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x83)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
+(define (emit-jb asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x82)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
 (define (emit-br-if-true asm var invert? label)
   (error "unimplemented" 'br-if-true var))
 (define (emit-br-if-eq asm a b invert? label)
   (error "unimplemented" 'br-if-eq a b))
 (define (emit-br-if-< asm a b invert? label)
-  (emit-cmpq asm (gp-register-code a) (gp-register-code b))
-  (if invert?
-      (emit-jle asm label)
-      (emit-jg asm label)))
+  (cond
+   ((xmm-register-code a)
+    => (lambda (a)
+         (let ((b (xmm-register-code b)))
+           (emit-ucomisd asm a b)
+           (if invert?
+               (emit-jae asm label)
+               (emit-jb asm label)))))
+   (else
+    (emit-cmpq asm (gp-register-code a) (gp-register-code b))
+    (if invert?
+        (emit-jle asm label)
+        (emit-jg asm label)))))
 (define (emit-br-if-<= asm a b invert? label)
   (error "unimplemented" 'br-if-<= a b))
 (define (emit-br-if-= asm a b invert? label)
