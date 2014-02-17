@@ -88,21 +88,42 @@
             (b (/ (abs vz) 5.0))
             (x- (- x 0.5))
             (y- (- y 0.5))
+            (z- (- z 0.5))
             (x+ (+ x 0.5))
             (y+ (+ y 0.5))
-            (base (* n 4)))
-        (pack vertices base color-vertex
-              x- y- z
-              r g b)
-        (pack vertices (+ base 1) color-vertex
-              x+ y- z
-              r g b)
-        (pack vertices (+ base 2) color-vertex
-              x+ y+ z
-              r g b)
-        (pack vertices (+ base 3) color-vertex
-              x- y+ z
-              r g b))))
+            (z+ (+ z 0.5))
+            (base (* n 4 6)))
+        (define-syntax-rule (vertex n x y z)
+          (pack vertices (+ base n) color-vertex x y z r g b))
+        (vertex 0 x- y- z-)
+        (vertex 1 x+ y- z-)
+        (vertex 2 x+ y+ z-)
+        (vertex 3 x- y+ z-)
+
+        (vertex 4 x- y- z+)
+        (vertex 5 x+ y- z+)
+        (vertex 6 x+ y+ z+)
+        (vertex 7 x- y+ z+)
+
+        (vertex 8 x- y- z-)
+        (vertex 9 x- y+ z-)
+        (vertex 10 x- y+ z+)
+        (vertex 11 x- y- z+)
+
+        (vertex 12 x+ y- z-)
+        (vertex 13 x+ y+ z-)
+        (vertex 14 x+ y+ z+)
+        (vertex 15 x+ y- z+)
+
+        (vertex 16 x- y- z-)
+        (vertex 17 x+ y- z-)
+        (vertex 18 x+ y- z+)
+        (vertex 19 x- y- z+)
+
+        (vertex 20 x- y+ z-)
+        (vertex 21 x+ y+ z-)
+        (vertex 22 x+ y+ z+)
+        (vertex 23 x- y+ z+))))
    start end))
 
 (define (update-quads)
@@ -142,7 +163,7 @@
 
 (define (prepare-particles n)
   (set! *particles* (make-packed-array particle n))
-  (set! *vertices* (make-packed-array color-vertex (* n 4)))
+  (set! *vertices* (make-packed-array color-vertex (* n 4 6)))
 
   (pack-each
    *particles*
