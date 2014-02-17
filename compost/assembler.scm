@@ -678,10 +678,12 @@ The offsets are expected to be expressed in bytes."
 ;;; the symbol table, etc.
 ;;;
 
-(define (link-dynamic-section asm text)
+(define (link-dynamic-section asm text strsz)
   "Link the dynamic section for an ELF image with @var{text}."
   (let ((buf (u64vector DT_STRTAB 0
                         DT_SYMTAB 0
+                        DT_STRSZ strsz
+                        DT_SYMENT (elf-symbol-len 8)
                         DT_NULL 0))
         (relocs (list (make-linker-reloc 'abs64/1 8 0 '.dynstr)
                       (make-linker-reloc 'abs64/1 24 0 '.dynsym))))
@@ -702,19 +704,24 @@ The offsets are expected to be expressed in bytes."
          (meta (reverse (asm-meta asm)))
          (n (length meta))
          (strtab (make-string-table))
-         (bv (make-bytevector (* n size) 0)))
+         (bv (make-bytevector (* (1+ n) size) 0)))
     (define (intern-string! name)
       (string-table-intern! strtab (if name (symbol->string name) "")))
+    (write-elf-symbol bv 0 (endianness little) word-size
+                      (make-elf-symbol
+                       #:name 0 #:value 0 #:size 0 #:type STT_NOTYPE
+                       #:binding STB_LOCAL #:visibility STV_DEFAULT
+                       #:shndx 0))
     (for-each
      (lambda (meta n)
-       (pk meta n)
-       (let ((name (intern-string! (pk 'name (meta-name meta)))))
-         (write-elf-symbol bv (* n size) (endianness little) word-size
+       (let ((name (intern-string! (meta-name meta))))
+         (write-elf-symbol bv (* (1+ n) size) (endianness little) word-size
                            (make-elf-symbol
                             #:name name
                             #:value (meta-low-pc meta)
                             #:size (- (meta-high-pc meta) (meta-low-pc meta))
                             #:type STT_FUNC
+                            #:binding STB_GLOBAL
                             #:visibility STV_DEFAULT
                             #:shndx (elf-section-index text-section)))))
      meta (iota n))
@@ -727,15 +734,15 @@ The offsets are expected to be expressed in bytes."
                            (map (lambda (meta n)
                                   (make-linker-reloc
                                    'abs64/1
-                                   (+ (* n size)
+                                   (+ (* (1+ n) size)
                                       (elf-symbol-value-offset word-size))
                                    0
                                    (meta-label meta)))
                                 meta (iota n))
                            '()
-                           #:type SHT_SYMTAB #:flags SHF_ALLOC #:entsize size
-                           #:link (elf-section-index
-                                   (linker-object-section strtab)))
+                           #:type SHT_DYNSYM #:flags SHF_ALLOC #:entsize size
+                           #:info 1 #:link (elf-section-index
+                                            (linker-object-section strtab)))
               strtab))))
 
 ;;;
@@ -1081,8 +1088,10 @@ The offsets are expected to be expressed in bytes."
 (define (link-objects asm)
   (let*-values (((ro) (link-flonums asm))
                 ((text) (link-text-object asm))
-                ((dt) (link-dynamic-section asm text))
                 ((symtab strtab) (link-symtab (linker-object-section text) asm))
+                ((dt) (link-dynamic-section asm text
+                                            (bytevector-length
+                                             (linker-object-bv strtab))))
                 ((dinfo dabbrev dstrtab dloc dline) (link-debug asm))
                 ;; This needs to be linked last, because linking other
                 ;; sections adds entries to the string table.
