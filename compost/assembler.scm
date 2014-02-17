@@ -698,7 +698,53 @@ The offsets are expected to be expressed in bytes."
                '() '()
                #:type SHT_STRTAB #:flags 0))
 
-(define (link-symtab text-section asm)
+(define (elf-symbol-hash str)
+  (let ((bv (string->utf8 str)))
+    (let lp ((h 0) (n 0))
+      (cond
+       ((< n (bytevector-length bv))
+        (let* ((h (+ (logand (ash h 4) #xffffffff)
+                    (bytevector-u8-ref bv n)))
+               (g (logand h #xf0000000))
+               (h (if (zero? g) h (logxor h (ash g -24))))
+               (h (logand h (lognot g))))
+          (lp h (1+ n))))
+       (else h)))))
+
+;; ♥ ♥ ♥  peval completely unrolls this  ♥ ♥ ♥
+(define (choose-nbuckets n)
+  (let ((sizes #(7 23 47 113 223)))
+    (let lp ((idx 0))
+      (if (or (= (1+ idx) (vector-length sizes))
+              (< n (vector-ref sizes idx)))
+          (vector-ref sizes idx)
+          (lp (1+ idx))))))
+
+(define (link-hash asm)
+  (let* ((word-size 8)
+         (names (cons "" (map (compose symbol->string meta-name)
+                              (reverse (asm-meta asm)))))
+         (nchains (length names))
+         (nbuckets (choose-nbuckets nchains))
+         (bv (make-bytevector (* (+ 2 nchains nbuckets) 4) 0)))
+    (define STN_UNDEF 0)
+    (u32vector-set! bv 0 nbuckets)
+    (u32vector-set! bv 1 nchains)
+    (let lp ((n 0))
+      (when (< n nbuckets)
+        (u32vector-set! bv (+ 2 n) STN_UNDEF)
+        (lp (1+ n))))
+    (let lp ((n 0) (names names))
+      (when (< n nchains)
+        (let* ((bucket (modulo (elf-symbol-hash (car names)) nbuckets))
+               (existing (u32vector-ref bv (+ 2 bucket))))
+          (u32vector-set! bv (+ 2 bucket) n)
+          (u32vector-set! bv (+ 2 nbuckets n) existing)
+          (lp (1+ n) (cdr names)))))
+    (make-object asm '.hash bv '() '()
+                 #:type SHT_HASH #:flags SHF_ALLOC)))
+
+(define (link-dynsym asm text-section)
   (let* ((word-size 8)
          (size (elf-symbol-len word-size))
          (meta (reverse (asm-meta asm)))
@@ -743,7 +789,8 @@ The offsets are expected to be expressed in bytes."
                            #:type SHT_DYNSYM #:flags SHF_ALLOC #:entsize size
                            #:info 1 #:link (elf-section-index
                                             (linker-object-section strtab)))
-              strtab))))
+              strtab
+              (link-hash asm)))))
 
 ;;;
 ;;; The DWARF .debug_info, .debug_abbrev, .debug_str, and .debug_loc
@@ -1088,7 +1135,9 @@ The offsets are expected to be expressed in bytes."
 (define (link-objects asm)
   (let*-values (((ro) (link-flonums asm))
                 ((text) (link-text-object asm))
-                ((symtab strtab) (link-symtab (linker-object-section text) asm))
+                ((symtab strtab hash) (link-dynsym
+                                       asm
+                                       (linker-object-section text)))
                 ((dt) (link-dynamic-section asm text
                                             (bytevector-length
                                              (linker-object-bv strtab))))
@@ -1097,7 +1146,7 @@ The offsets are expected to be expressed in bytes."
                 ;; sections adds entries to the string table.
                 ((shstrtab) (link-shstrtab asm)))
     (filter identity
-            (list text ro dt symtab strtab
+            (list text ro dt symtab strtab hash
                   dinfo dabbrev dstrtab dloc dline
                   shstrtab))))
 
