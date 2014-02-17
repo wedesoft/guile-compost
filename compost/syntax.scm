@@ -42,7 +42,9 @@
     (let ((port (mkstemp! templ)))
       (put-bytevector port bv)
       (close-port port)
-      (let ((new-name (string-append templ extension)))
+      (let ((new-name (string-append templ (string-join
+                                            (string-split extension #\/)
+                                            "-"))))
         (rename-file templ new-name)
         new-name))))
 
@@ -61,7 +63,8 @@
         (else (error "unknown type" guard))))
     (syntax-case x ()
       ((lambda/compost name* ((arg guard) ...) body body* ...)
-       (let ((proc #'(lambda (arg ...) #((name . name*)) body body* ...)))
+       (let ((proc #'(lambda (arg ...) #((name . name*)) body body* ...))
+             (name-str (symbol->string (syntax->datum #'name*))))
          (define (inner-proc)
            (cond
             ((compile/compost (syntax->datum proc)
@@ -70,19 +73,24 @@
                               (syntax-source x))
              => (lambda (compiled)
                   (with-syntax
-                      ((name-str (symbol->string (syntax->datum #'name*)))
+                      ((name-str name-str)
                        (obj-str (write-cache-file compiled
-                                                  "guile/compost" ".so"))
+                                                  "guile/compost"
+                                                  (string-append "-"
+                                                                 name-str
+                                                                 ".so")))
                        ((type ...) (map guard->type #'(guard ...)))
                        ((unbox ...) (map guard->unbox #'(guard ...))))
-                    #'(let ((foreign (pointer->procedure
-                                      void
-                                      (dynamic-pointer name-str
-                                                       (dynamic-link obj-str))
-                                      (list type ...))))
-                        (lambda (arg ...)
-                          #((name . name*))
-                          (foreign (unbox arg) ...))))))
+                    #'(begin
+                        (format (current-warning-port) ";;; loading ~a\n" obj-str)
+                        (let ((foreign (pointer->procedure
+                                        void
+                                        (dynamic-pointer name-str
+                                                         (dynamic-link obj-str))
+                                        (list type ...))))
+                          (lambda (arg ...)
+                            #((name . name*))
+                            (foreign (unbox arg) ...)))))))
             (else proc)))
          #`(let ((proc #,(inner-proc)))
              (lambda (arg ...)
