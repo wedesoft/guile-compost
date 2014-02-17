@@ -37,12 +37,13 @@
 
 (define (prim-instruction/compost prim)
   (case prim
-    ((sqrt bytevector-length) prim)
+    ((sqrt max bytevector-length) prim)
     (else (prim-instruction prim))))
 
 (define (prim-arity/compost prim)
   (case prim
     ((sqrt) '(1 . 1))
+    ((max) '(2 . 1))
     ((bytevector-length) '(1 . 1))
     (else (prim-arity prim))))
 

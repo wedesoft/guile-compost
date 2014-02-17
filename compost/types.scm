@@ -157,7 +157,7 @@
     (('sqrt x)
      (logior &number &complex &inexact
              &irrational &non-integer &non-small-integer))
-    (('abs x) (logand x (lognot &complex) &generic-number))))
+    (('max x y) (logand (logior x y) (lognot &complex) &generic-number))))
 
 (define (primcall-argument-types op)
   (define &register-integer (logior &fixnum &non-fixnum-integer))
@@ -170,7 +170,7 @@
     ((or '= '< '<= '> '>=) (list &flonum &flonum))
     ('eq? (list &all-types &all-types))
     ('sqrt (list &flonum))
-    ('abs (list &flonum))))
+    ('max (list &flonum &flonum))))
 
 (define (type-representations type)
   (define (add-type name &type res)

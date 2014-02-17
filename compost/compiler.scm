@@ -71,8 +71,7 @@
              bytevector-length
              bv-f32-ref bv-f32-set!
              = < <= > >=
-             sqrt abs
-             eq?)))
+             sqrt max eq?)))
 
 (define (assert-compilable-function fun)
   (define (visit-cont cont)

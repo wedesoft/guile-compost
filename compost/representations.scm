@@ -64,7 +64,7 @@
          ((or '= '< '<= '> '>=) 'fpr 'fpr)
          ('eq? 'gpr 'gpr)
          ('sqrt 'fpr)
-         ('abs 'fpr))
+         ('max 'fpr))
      #t)
     (else (compilation-error src "unsupported reprs for op: ~a ~a" op reprs))))
 

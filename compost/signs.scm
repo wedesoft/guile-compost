@@ -87,7 +87,8 @@
     (('bv-f32-ref bv offset) &all-signs)
     (((or '= '< '<= '> '>= 'eq?) a b) &all-signs)
     (('sqrt x) (logand (logior &positive &zero) x))
-    (('abs x) (logand (logior &positive &zero) x))))
+    (('abs x) (logand (logior &positive &zero) x))
+    (('max x y) (max x y))))
 
 (define (sign-representations sign)
   (define (add-sign name &sign res)
