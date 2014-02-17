@@ -412,8 +412,8 @@ up later by the assembler."
   (emit-u8 asm #x0f)
   (emit-u8 asm #x10)
   (emit-modrm/disp0 asm dst 5) ; ebp = 5
-  (record-label-reference asm label 0)
-  (emit-u32 asm 0))
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
 
 (define (emit-bv-f32-set! asm bv idx val)
   ;; FIXME: use tmp register
