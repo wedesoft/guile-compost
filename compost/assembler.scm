@@ -688,11 +688,13 @@ The offsets are expected to be expressed in bytes."
   "Link the dynamic section for an ELF image with @var{text}."
   (let ((buf (u64vector DT_STRTAB 0
                         DT_SYMTAB 0
+                        DT_HASH 0
                         DT_STRSZ strsz
                         DT_SYMENT (elf-symbol-len 8)
                         DT_NULL 0))
         (relocs (list (make-linker-reloc 'abs64/1 8 0 '.dynstr)
-                      (make-linker-reloc 'abs64/1 24 0 '.dynsym))))
+                      (make-linker-reloc 'abs64/1 24 0 '.dynsym)
+                      (make-linker-reloc 'abs64/1 40 0 '.hash))))
     (make-object asm '.dynamic buf relocs '()
                  #:type SHT_DYNAMIC #:flags (logior SHF_ALLOC SHF_WRITE))))
 
