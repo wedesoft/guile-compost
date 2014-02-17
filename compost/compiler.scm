@@ -99,7 +99,7 @@
        (for-each visit-cont conts)
        (visit-term body))
       (($ $letrec names syms funs body)
-       (compilation-error #f "function contains closures"))
+       (compilation-error #f "function contains closures: ~a" names))
       (($ $continue k src exp)
        (match exp
          ;; FIXME: void only supported in tail context
