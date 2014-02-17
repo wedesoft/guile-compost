@@ -328,9 +328,15 @@ up later by the assembler."
   (emit-modrm/reg asm dst src))
 
 (define (emit-movq/imm asm dst bits)
-  (emit-rex64 asm 0 dst)
-  (emit-u8 asm (logior #xb8 (logand dst #x7)))
-  (emit-u64 asm bits))
+  (cond
+   ((zero? bits)
+    (emit-optional-rex32 asm dst dst)
+    (emit-u8 asm #x33)
+    (emit-modrm/reg asm dst dst))
+   (else
+    (emit-rex64 asm 0 dst)
+    (emit-u8 asm (logior #xb8 (logand dst #x7)))
+    (emit-u64 asm bits))))
 
 (define (emit-mov asm dst src)
   (cond
