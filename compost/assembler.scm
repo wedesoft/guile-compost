@@ -694,7 +694,7 @@ The offsets are expected to be expressed in bytes."
         (relocs (list (make-linker-reloc 'abs64/1 8 0 '.dynstr)
                       (make-linker-reloc 'abs64/1 24 0 '.dynsym))))
     (make-object asm '.dynamic buf relocs '()
-                 #:type SHT_DYNAMIC #:flags SHF_ALLOC)))
+                 #:type SHT_DYNAMIC #:flags (logior SHF_ALLOC SHF_WRITE))))
 
 (define (link-shstrtab asm)
   "Link the string table for the section headers."
