@@ -562,6 +562,18 @@ up later by the assembler."
   (emit-u32 asm 0)
   (record-label-reference asm label -4))
 
+(define (emit-jg asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x8f)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
+(define (emit-jle asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x8e)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
 (define (emit-br-if-true asm var invert? label)
   (error "unimplemented" 'br-if-true var))
 (define (emit-br-if-eq asm a b invert? label)
@@ -569,8 +581,8 @@ up later by the assembler."
 (define (emit-br-if-< asm a b invert? label)
   (emit-cmpq asm (gp-register-code a) (gp-register-code b))
   (if invert?
-      (emit-jge asm label)
-      (emit-jl asm label)))
+      (emit-jle asm label)
+      (emit-jg asm label)))
 (define (emit-br-if-<= asm a b invert? label)
   (error "unimplemented" 'br-if-<= a b))
 (define (emit-br-if-= asm a b invert? label)
