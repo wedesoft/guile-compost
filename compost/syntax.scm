@@ -23,28 +23,68 @@
 
 (define-module (compost syntax)
   #:use-module (compost compiler)
-  #:use-module (compost runtime)
+  #:use-module (system foreign)
+  #:use-module (ice-9 binary-ports)
   #:export (lambda/compost define/compost))
 
 (define-syntax-rule (define/compost (proc arg+guard ...) body ...)
   (define proc (lambda/compost proc (arg+guard ...) body ...)))
 
+(define (ensure-dir path)
+  (unless (file-exists? path)
+    (ensure-dir (dirname path))
+    (mkdir path #o700)))
+
+(define (write-cache-file bv project extension)
+  (let* ((home (or (getenv "HOME") (passwd:dir (getpwuid (getuid)))))
+         (templ (string-append home "/.cache/" project "/XXXXXX")))
+    (ensure-dir (dirname templ))
+    (let ((port (mkstemp! templ)))
+      (put-bytevector port bv)
+      (close-port port)
+      (let ((new-name (string-append templ extension)))
+        (rename-file templ new-name)
+        new-name))))
+
 (define-syntax lambda/compost
   (lambda (x)
+    (define (guard->type guard)
+      (case (syntax->datum guard)
+        ((bytevector?) #''*)
+        ((real?) #'double)
+        ((exact-integer?) #'int64)
+        (else (error "unknown type" guard))))
+    (define (guard->unbox guard)
+      (case (syntax->datum guard)
+        ((bytevector?) #'bytevector->pointer)
+        ((real? exact-integer?) #'(lambda (x) x))
+        (else (error "unknown type" guard))))
     (syntax-case x ()
       ((lambda/compost name* ((arg guard) ...) body body* ...)
-       (let ((proc #'(lambda (arg ...)
-                       #((name . name*))
-                       body body* ...)))
-         #`(let ((proc
-                  (load/compost
-                   #,(datum->syntax #'lambda/compost
-                                    (compile/compost
-                                     (syntax->datum proc)
-                                     (syntax->datum #'(guard ...))
-                                     (current-module)
-                                     (syntax-source x)))
-                   #,proc)))
+       (let ((proc #'(lambda (arg ...) #((name . name*)) body body* ...)))
+         (define (inner-proc)
+           (cond
+            ((compile/compost (syntax->datum proc)
+                              (syntax->datum #'(guard ...))
+                              (current-module)
+                              (syntax-source x))
+             => (lambda (compiled)
+                  (with-syntax
+                      ((name-str (symbol->string (syntax->datum #'name*)))
+                       (obj-str (write-cache-file compiled
+                                                  "guile/compost" ".so"))
+                       ((type ...) (map guard->type #'(guard ...)))
+                       ((unbox ...) (map guard->unbox #'(guard ...))))
+                    #'(let ((foreign (pointer->procedure
+                                      void
+                                      (dynamic-pointer name-str
+                                                       (dynamic-link obj-str))
+                                      (list type ...))))
+                        (lambda (arg ...)
+                          #((name . name*))
+                          (foreign (unbox arg) ...))))))
+            (else proc)))
+         #`(let ((proc #,(inner-proc)))
              (lambda (arg ...)
                #((name . name*))
                (unless (guard arg)

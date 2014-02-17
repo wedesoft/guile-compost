@@ -14,7 +14,6 @@ SOURCES = \
 	compost/error.scm \
 	compost/register-allocation.scm \
 	compost/representations.scm \
-	compost/runtime.scm \
 	compost/packed-struct.scm \
 	compost/signs.scm \
 	compost/syntax.scm \
