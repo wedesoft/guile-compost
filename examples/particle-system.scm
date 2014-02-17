@@ -23,7 +23,9 @@
              (figl glu)
              (ice-9 match)
              (ice-9 format)
-             (compost packed-struct))
+             (rnrs bytevectors)
+             (compost packed-struct)
+             (compost syntax))
 
 (define-packed-struct color-vertex
   (x float)
@@ -71,7 +73,10 @@
 
   (gl-bind-buffer (version-1-5 array-buffer) 0))
 
-(define (update-quads-visitor particles start end)
+(define/compost (update-quads-visitor (particles bytevector?)
+                                      (vertices bytevector?)
+                                      (start exact-integer?)
+                                      (end exact-integer?))
   ((unpack-visitor
     particles
     particle
@@ -84,16 +89,16 @@
             (x+ (+ x 0.5))
             (y+ (+ y 0.5))
             (base (* n 4)))
-        (pack *vertices* base color-vertex
+        (pack vertices base color-vertex
               x- y- z
               r g b)
-        (pack *vertices* (+ base 1) color-vertex
+        (pack vertices (+ base 1) color-vertex
               x+ y- z
               r g b)
-        (pack *vertices* (+ base 2) color-vertex
+        (pack vertices (+ base 2) color-vertex
               x+ y+ z
               r g b)
-        (pack *vertices* (+ base 3) color-vertex
+        (pack vertices (+ base 3) color-vertex
               x- y+ z
               r g b))))
    start end))
@@ -101,10 +106,13 @@
 (define (update-quads)
   (parallel-visit (packed-array-length *particles* particle)
                   (lambda (start end)
-                    (update-quads-visitor *particles* start end))
+                    (update-quads-visitor *particles* *vertices* start end))
                   (current-processor-count)))
 
-(define (update-particles-visitor particles dt start end)
+(define/compost (update-particles-visitor (particles bytevector?)
+                                          (dt real?)
+                                          (start exact-integer?)
+                                          (end exact-integer?))
   (let ((half-dt-squared (* 0.5 dt dt)))
     ((repack-visitor
       particles
@@ -112,7 +120,7 @@
       (lambda (n x y z vx vy vz)
         (let* ((distance-squared (+ (* x x) (* y y) (* z z)))
                (distance (sqrt distance-squared))
-               (F (/ -200 distance-squared))
+               (F (/ -200.0 distance-squared))
                (ax (* F (/ x distance)))
                (ay (* F (/ y distance)))
                (az (* F (/ z distance))))
