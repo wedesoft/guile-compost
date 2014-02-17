@@ -346,16 +346,22 @@ up later by the assembler."
    (else
     (emit-movq asm (gp-register-code dst) (gp-register-code src)))))
 
-(define (make-operand/base+index+disp8 base index disp)
-  (u8vector
-   ;; REX.
-   (ash (logior (ash (logand index #x8) 1) (logand disp #x8)) -3)
-   ;; ModR/M.
-   (logior (ash 1 6) (gp-register-code '&rsp))
-   ;; SIB.
-   (logior (ash (logand index #x7) 3) (logand base #x7))
-   ;; Disp.
-   16))
+(define (make-operand/base+index+disp base index disp)
+  (let ((rex (ash (logior (ash (logand index #x8) 1)
+                          (logand base #x8))
+                  -3))
+        (sib (logior (ash (logand index #x7) 3)
+                     (logand base #x7))))
+    (define (modr/m code)
+      (logior (ash code 6) (gp-register-code '&rsp)))
+    (cond
+     ((zero? disp)
+      (u8vector rex (modr/m 0) sib))
+     ((<= -128 disp 127)
+      (u8vector rex (modr/m 1) sib disp))
+     (else
+      ;; can't be arsed to find the proper range of 32 bits
+      (error "unimplemented")))))
 
 (define (emit-optional-rex32 asm a b)
   (let ((rex-bits (logior (ash (logand a #x8) -1)
@@ -420,16 +426,16 @@ up later by the assembler."
   (emit-cvtsd2ss asm (xmm-register-code val) (xmm-register-code val))
   (emit-movss/store asm
                     (xmm-register-code val)
-                    (make-operand/base+index+disp8 (gp-register-code bv)
-                                                   (gp-register-code idx)
-                                                   16)))
+                    (make-operand/base+index+disp (gp-register-code bv)
+                                                  (gp-register-code idx)
+                                                  0)))
 
 (define (emit-bv-f32-ref asm dst bv idx)
   (emit-cvtss2sd/mem asm
                      (xmm-register-code dst)
-                     (make-operand/base+index+disp8 (gp-register-code bv)
-                                                    (gp-register-code idx)
-                                                    16)))
+                     (make-operand/base+index+disp (gp-register-code bv)
+                                                   (gp-register-code idx)
+                                                   0)))
 
 (define (emit-addsd asm dst a b)
   (cond
