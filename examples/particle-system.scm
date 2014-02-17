@@ -81,9 +81,11 @@
     particles
     particle
     (lambda (n x y z vx vy vz)
-      (let ((r (/ (abs vx) 5))
-            (g (/ (abs vy) 5))
-            (b (/ (abs vz) 5))
+      (define (abs val)
+        (if (< val 0.0) (* val -1.0) val))
+      (let ((r (/ (abs vx) 5.0))
+            (g (/ (abs vy) 5.0))
+            (b (/ (abs vz) 5.0))
             (x- (- x 0.5))
             (y- (- y 0.5))
             (x+ (+ x 0.5))

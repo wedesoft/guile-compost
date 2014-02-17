@@ -67,10 +67,11 @@
              (name-str (symbol->string (syntax->datum #'name*))))
          (define (inner-proc)
            (cond
-            ((compile/compost (syntax->datum proc)
-                              (syntax->datum #'(guard ...))
-                              (current-module)
-                              (syntax-source x))
+            ((and (not (getenv "NO_COMPOST"))
+                  (compile/compost (syntax->datum proc)
+                                   (syntax->datum #'(guard ...))
+                                   (current-module)
+                                   (syntax-source x)))
              => (lambda (compiled)
                   (with-syntax
                       ((name-str name-str)
