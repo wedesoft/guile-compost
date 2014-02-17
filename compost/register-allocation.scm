@@ -188,7 +188,7 @@ are comparable with eqv?.  A tmp reg may be used."
   ;; Naive implementation.
   (let lp ((reg 0))
     (cond
-     ((>= reg &registers)
+     ((>= reg &xmm15)
       (compilation-error #f "register allocation would spill"))
      ((logbit? reg n) (lp (1+ reg)))
      (else reg))))

@@ -423,9 +423,9 @@ up later by the assembler."
 
 (define (emit-bv-f32-set! asm bv idx val)
   ;; FIXME: use tmp register
-  (emit-cvtsd2ss asm (xmm-register-code val) (xmm-register-code val))
+  (emit-cvtsd2ss asm (xmm-register-code '&xmm15) (xmm-register-code val))
   (emit-movss/store asm
-                    (xmm-register-code val)
+                    (xmm-register-code '&xmm15)
                     (make-operand/base+index+disp (gp-register-code bv)
                                                   (gp-register-code idx)
                                                   0)))
