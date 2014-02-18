@@ -402,10 +402,10 @@
 (define (main args)
   (let ((args
          (initialize-glut args
-                          #:window-size '(640 . 480)
+                          #:window-size '(512 . 416)
                           #:display-mode (display-mode rgba alpha double
                                                        depth))))
-    (set! main-window (make-window "particle-system"))
+    (set! main-window (make-window "n-body"))
     (register-glut-callbacks)
     (set-gl-clear-color 0 0 0 1)
     (set-gl-clear-depth 1)
@@ -417,7 +417,7 @@
     ;; Z axis.
     (set-gl-matrix-mode (matrix-mode modelview))
     (gl-load-identity)
-    (gl-translate 0 0 -100)
+    (gl-translate 0 0 -50)
     (gl-rotate 10 1 0 0)
 
     (gl-enable (enable-cap depth-test))
