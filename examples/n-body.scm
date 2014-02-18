@@ -155,33 +155,30 @@
     (lambda (n x y z)
       (define (max x y)
         (if (< x y) y x))
-      (unpack
-       masses n vec1
-       (lambda (m)
-         (let lp ((n* 0) (ax 0.0) (ay 0.0) (az 0.0))
-           (cond
-            ((= n* n) (lp (1+ n*) ax ay az))
-            ((= n* total-size)
-             (pack accelerations n vec3 ax ay az))
-            (else
-             (unpack
-              positions n* vec3
-              (lambda (x* y* z*)
-                (let* ((x* (- x x*))
-                       (y* (- y y*))
-                       (z* (- z z*))
-                       ;; Important to make a lower bound on
-                       ;; distance-squared, to avoid nan F killing the
-                       ;; whole sim.  Anyway one particle can't 
-                       (distance-squared (max (+ (* x* x*) (* y* y*) (* z* z*))
-                                              (* 0.05 0.05)))
-                       (distance (sqrt distance-squared))
-                       (F (/ (* -1.0 m (unpack masses n* vec1 values))
-                             distance-squared)))
-                  (lp (1+ n*)
-                      (+ ax (* F (/ x* distance)))
-                      (+ ay (* F (/ y* distance)))
-                      (+ az (* F (/ z* distance))))))))))))))
+      (let lp ((n* 0) (ax 0.0) (ay 0.0) (az 0.0))
+        (cond
+         ((= n* n) (lp (1+ n*) ax ay az))
+         ((= n* total-size)
+          (pack accelerations n vec3 ax ay az))
+         (else
+          (unpack
+           positions n* vec3
+           (lambda (x* y* z*)
+             (let* ((x* (- x x*))
+                    (y* (- y y*))
+                    (z* (- z z*))
+                    ;; Important to make a lower bound on
+                    ;; distance-squared, to avoid nan F killing the
+                    ;; whole sim.
+                    (distance-squared (max (+ (* x* x*) (* y* y*) (* z* z*))
+                                           (* 0.1 0.1)))
+                    (distance (sqrt distance-squared))
+                    (a (/ (* -10.0 (unpack masses n* vec1 values))
+                          distance-squared)))
+               (lp (1+ n*)
+                   (+ ax (* a (/ x* distance)))
+                   (+ ay (* a (/ y* distance)))
+                   (+ az (* a (/ z* distance))))))))))))
    start end))
 
 (define (update-accelerations dt)
@@ -249,9 +246,9 @@
   (pack-each *velocities* vec3
              (lambda (n)
                (values
-                (* (random:normal) 5)
-                (* (random:normal) 5)
-                (* (random:normal) 5))))
+                (* (random:normal) 1)
+                (* (random:normal) 1)
+                (* (random:normal) 1))))
 
   (update-quads)
 
@@ -386,7 +383,7 @@
   ;; quads facing our way.
   #;
   (gl-rotate 0.05 0 0 1)
-  (update-positions 0.005)
+  (update-positions 0.004)
   (update-quads)
   (post-redisplay main-window))
 
