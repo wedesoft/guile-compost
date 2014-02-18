@@ -891,7 +891,7 @@ The offsets are expected to be expressed in bytes."
                '() '()
                #:type SHT_HASH #:flags SHF_ALLOC))
 
-(define (link-dynsym asm text-section)
+(define (link-dynsym asm)
   (let* ((word-size 8)
          (size (elf-symbol-len word-size))
          (meta (reverse (asm-meta asm)))
@@ -916,7 +916,7 @@ The offsets are expected to be expressed in bytes."
                             #:type STT_FUNC
                             #:binding STB_GLOBAL
                             #:visibility STV_DEFAULT
-                            #:shndx (elf-section-index text-section)))))
+                            ))))
      meta (iota n))
     (let ((strtab (make-object asm '.dynstr
                                (link-string-table! strtab)
@@ -1282,18 +1282,16 @@ The offsets are expected to be expressed in bytes."
 (define (link-objects asm)
   (let*-values (((ro) (link-flonums asm))
                 ((text) (link-text-object asm))
-                ((symtab strtab hash) (link-dynsym
-                                       asm
-                                       (linker-object-section text)))
+                ((dynsym dynstr hash) (link-dynsym asm))
                 ((dt) (link-dynamic-section asm text
                                             (bytevector-length
-                                             (linker-object-bv strtab))))
+                                             (linker-object-bv dynstr))))
                 ((dinfo dabbrev dstrtab dloc dline) (link-debug asm))
                 ;; This needs to be linked last, because linking other
                 ;; sections adds entries to the string table.
                 ((shstrtab) (link-shstrtab asm)))
     (filter identity
-            (list text ro dt symtab strtab hash
+            (list text ro dt dynsym dynstr hash
                   dinfo dabbrev dstrtab dloc dline
                   shstrtab))))
 
