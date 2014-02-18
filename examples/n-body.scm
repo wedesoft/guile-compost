@@ -171,7 +171,7 @@
                     ;; distance-squared, to avoid nan F killing the
                     ;; whole sim.
                     (distance-squared (max (+ (* x* x*) (* y* y*) (* z* z*))
-                                           (* 0.1 0.1)))
+                                           (* 0.05 0.05)))
                     (distance (sqrt distance-squared))
                     (a (/ (* -10.0 (unpack masses n* vec1 values))
                           distance-squared)))
@@ -424,7 +424,7 @@
 
     (set! *random-state* (random-state-from-platform))
     (prepare-particles (match args
-                         ((_) 50)
+                         ((_) 500)
                          ((_ n) (string->number n))))
 
     (glut-main-loop)
