@@ -41,7 +41,12 @@
   (y float)
   (z float))
 
+(define-packed-struct vec1
+  (x float))
+
 (define *vertices* (make-packed-array color-vertex 0))
+(define *masses* (make-packed-array vec1 0))
+(define *dimensions* (make-packed-array vec1 0))
 (define *positions* (make-packed-array vec3 0))
 (define *velocities* (make-packed-array vec3 0))
 (define *accelerations* (make-packed-array vec3 0))
@@ -74,6 +79,7 @@
 
 (define/compost (update-quads-visitor (positions bytevector?)
                                       (velocities bytevector?)
+                                      (dimensions bytevector?)
                                       (vertices bytevector?)
                                       (start exact-integer?)
                                       (end exact-integer?))
@@ -86,56 +92,59 @@
       (unpack
        velocities n vec3
        (lambda (vx vy vz)
-         (let ((r (+ 0.2 (/ (abs vx) 20.0)))
-               (g (+ 0.2 (/ (abs vy) 20.0)))
-               (b (+ 0.2 (/ (abs vz) 20.0)))
-               (x- (- x 0.5))
-               (y- (- y 0.5))
-               (z- (- z 0.5))
-               (x+ (+ x 0.5))
-               (y+ (+ y 0.5))
-               (z+ (+ z 0.5))
-               (base (* n 4 6)))
-           (define-syntax-rule (vertex n x y z)
-             (pack vertices (+ base n) color-vertex x y z r g b))
-           (vertex 0 x- y- z-)
-           (vertex 1 x+ y- z-)
-           (vertex 2 x+ y+ z-)
-           (vertex 3 x- y+ z-)
+         (let ((dim (unpack dimensions n vec1 values)))
+           (let ((r (+ 0.2 (/ (abs vx) 20.0)))
+                 (g (+ 0.2 (/ (abs vy) 20.0)))
+                 (b (+ 0.2 (/ (abs vz) 20.0)))
+                 (x- (- x dim))
+                 (y- (- y dim))
+                 (z- (- z dim))
+                 (x+ (+ x dim))
+                 (y+ (+ y dim))
+                 (z+ (+ z dim))
+                 (base (* n 4 6)))
+             (define-syntax-rule (vertex n x y z)
+               (pack vertices (+ base n) color-vertex x y z r g b))
+             (vertex 0 x- y- z-)
+             (vertex 1 x+ y- z-)
+             (vertex 2 x+ y+ z-)
+             (vertex 3 x- y+ z-)
 
-           (vertex 4 x- y- z+)
-           (vertex 5 x+ y- z+)
-           (vertex 6 x+ y+ z+)
-           (vertex 7 x- y+ z+)
+             (vertex 4 x- y- z+)
+             (vertex 5 x+ y- z+)
+             (vertex 6 x+ y+ z+)
+             (vertex 7 x- y+ z+)
 
-           (vertex 8 x- y- z-)
-           (vertex 9 x- y+ z-)
-           (vertex 10 x- y+ z+)
-           (vertex 11 x- y- z+)
+             (vertex 8 x- y- z-)
+             (vertex 9 x- y+ z-)
+             (vertex 10 x- y+ z+)
+             (vertex 11 x- y- z+)
 
-           (vertex 12 x+ y- z-)
-           (vertex 13 x+ y+ z-)
-           (vertex 14 x+ y+ z+)
-           (vertex 15 x+ y- z+)
+             (vertex 12 x+ y- z-)
+             (vertex 13 x+ y+ z-)
+             (vertex 14 x+ y+ z+)
+             (vertex 15 x+ y- z+)
 
-           (vertex 16 x- y- z-)
-           (vertex 17 x+ y- z-)
-           (vertex 18 x+ y- z+)
-           (vertex 19 x- y- z+)
+             (vertex 16 x- y- z-)
+             (vertex 17 x+ y- z-)
+             (vertex 18 x+ y- z+)
+             (vertex 19 x- y- z+)
 
-           (vertex 20 x- y+ z-)
-           (vertex 21 x+ y+ z-)
-           (vertex 22 x+ y+ z+)
-           (vertex 23 x- y+ z+))))))
+             (vertex 20 x- y+ z-)
+             (vertex 21 x+ y+ z-)
+             (vertex 22 x+ y+ z+)
+             (vertex 23 x- y+ z+)))))))
    start end))
 
 (define (update-quads)
   (parallel-visit (packed-array-length *positions* vec3)
                   (lambda (start end)
-                    (update-quads-visitor *positions* *velocities* *vertices* start end))
+                    (update-quads-visitor *positions* *velocities*
+                                          *dimensions* *vertices* start end))
                   (current-processor-count)))
 
-(define/compost (update-accelerations-visitor (positions bytevector?)
+(define/compost (update-accelerations-visitor (masses bytevector?)
+                                              (positions bytevector?)
                                               (accelerations bytevector?)
                                               (start exact-integer?)
                                               (end exact-integer?)
@@ -146,35 +155,39 @@
     (lambda (n x y z)
       (define (max x y)
         (if (< x y) y x))
-      (let lp ((n* 0) (ax 0.0) (ay 0.0) (az 0.0))
-        (cond
-         ((= n* n) (lp (1+ n*) ax ay az))
-         ((= n* total-size)
-          (pack accelerations n vec3 ax ay az))
-         (else
-          (unpack
-           positions n* vec3
-           (lambda (x* y* z*)
-             (let* ((x* (- x x*))
-                    (y* (- y y*))
-                    (z* (- z z*))
-                    ;; Important to make a lower bound on
-                    ;; distance-squared, to avoid nan F killing the
-                    ;; whole sim.
-                    (distance-squared (max (+ (* x* x*) (* y* y*) (* z* z*))
-                                           (* 0.05 0.05)))
-                    (distance (sqrt distance-squared))
-                    (F (/ -100.0 distance-squared)))
-               (lp (1+ n*)
-                   (+ ax (* F (/ x* distance)))
-                   (+ ay (* F (/ y* distance)))
-                   (+ az (* F (/ z* distance))))))))))))
+      (unpack
+       masses n vec1
+       (lambda (m)
+         (let lp ((n* 0) (ax 0.0) (ay 0.0) (az 0.0))
+           (cond
+            ((= n* n) (lp (1+ n*) ax ay az))
+            ((= n* total-size)
+             (pack accelerations n vec3 ax ay az))
+            (else
+             (unpack
+              positions n* vec3
+              (lambda (x* y* z*)
+                (let* ((x* (- x x*))
+                       (y* (- y y*))
+                       (z* (- z z*))
+                       ;; Important to make a lower bound on
+                       ;; distance-squared, to avoid nan F killing the
+                       ;; whole sim.  Anyway one particle can't 
+                       (distance-squared (max (+ (* x* x*) (* y* y*) (* z* z*))
+                                              (* 0.05 0.05)))
+                       (distance (sqrt distance-squared))
+                       (F (/ (* -1.0 m (unpack masses n* vec1 values))
+                             distance-squared)))
+                  (lp (1+ n*)
+                      (+ ax (* F (/ x* distance)))
+                      (+ ay (* F (/ y* distance)))
+                      (+ az (* F (/ z* distance))))))))))))))
    start end))
 
 (define (update-accelerations dt)
   (parallel-visit (packed-array-length *positions* vec3)
                   (lambda (start end)
-                    (update-accelerations-visitor *positions* *accelerations*
+                    (update-accelerations-visitor *masses* *positions* *accelerations*
                                                   start end
                                                   (packed-array-length *positions* vec3)))
                   (current-processor-count)))
@@ -214,11 +227,20 @@
                   (current-processor-count)))
 
 (define (prepare-particles n)
+  (set! *masses* (make-packed-array vec1 n))
+  (set! *dimensions* (make-packed-array vec1 n))
   (set! *positions* (make-packed-array vec3 n))
   (set! *velocities* (make-packed-array vec3 n))
   (set! *accelerations* (make-packed-array vec3 n))
   (set! *vertices* (make-packed-array color-vertex (* n 4 6)))
 
+  (pack-each *masses* vec1 (lambda (n) (* (random:exp) 10)))
+  (pack-each *dimensions* vec1
+             (lambda (n)
+               (/ (expt (unpack *masses* n vec1 values) (/ 1.0 3.0))
+                  10.0)
+               )
+             )
   (pack-each *positions* vec3
              (lambda (n)
                (values (* (random:normal) 30)

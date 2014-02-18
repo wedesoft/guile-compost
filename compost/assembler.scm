@@ -41,6 +41,8 @@
             emit-end-program
             emit-label
 
+            emit-save-registers
+            emit-restore-registers
             emit-add
             emit-sub
             emit-add1
@@ -57,8 +59,8 @@
             emit-br-if-<
             emit-br-if-<=
             emit-br-if-=
+            emit-prepare-return
             emit-return
-            emit-return-void
             emit-load-constant
 
             link-assembly))
@@ -324,30 +326,6 @@ up later by the assembler."
                        (ash (logand a #x7) 3)
                        (logand b #x7))))
 
-(define (emit-movq asm dst src)
-  (emit-rex64 asm dst src)
-  (emit-u8 asm #x8b)
-  (emit-modrm/reg asm dst src))
-
-(define (emit-movq/imm asm dst bits)
-  (cond
-   ((zero? bits)
-    (emit-optional-rex32 asm dst dst)
-    (emit-u8 asm #x33)
-    (emit-modrm/reg asm dst dst))
-   (else
-    (emit-rex64 asm 0 dst)
-    (emit-u8 asm (logior #xb8 (logand dst #x7)))
-    (emit-u64 asm bits))))
-
-(define (emit-mov asm dst src)
-  (cond
-   ((xmm-register-code dst)
-    => (lambda (xmm)
-         (emit-movsd asm xmm (xmm-register-code src))))
-   (else
-    (emit-movq asm (gp-register-code dst) (gp-register-code src)))))
-
 (define (make-operand/base+index+disp base index disp)
   (let ((rex (ash (logior (ash (logand index #x8) 1)
                           (logand base #x8))
@@ -357,7 +335,7 @@ up later by the assembler."
     (define (modr/m code)
       (logior (ash code 6) (gp-register-code '&rsp)))
     (cond
-     ((zero? disp)
+     ((and (zero? disp) (not (= (logand base #x7) 5)))
       (u8vector rex (modr/m 0) sib))
      ((<= -128 disp 127)
       (u8vector rex (modr/m 1) sib disp))
@@ -385,6 +363,56 @@ up later by the assembler."
       (when (< n length)
         (emit-u8 asm (bytevector-u8-ref mem n))
         (lp (1+ n))))))
+
+(define (emit-movq asm dst src)
+  (emit-rex64 asm dst src)
+  (emit-u8 asm #x8b)
+  (emit-modrm/reg asm dst src))
+
+(define (emit-movq/imm asm dst bits)
+  (cond
+   ((zero? bits)
+    (emit-optional-rex32 asm dst dst)
+    (emit-u8 asm #x33)
+    (emit-modrm/reg asm dst dst))
+   (else
+    (emit-rex64 asm 0 dst)
+    (emit-u8 asm (logior #xb8 (logand dst #x7)))
+    (emit-u64 asm bits))))
+
+(define (emit-mov asm dst src)
+  (cond
+   ((xmm-register-code dst)
+    => (lambda (xmm)
+         (emit-movsd asm xmm (xmm-register-code src))))
+   (else
+    (emit-movq asm (gp-register-code dst) (gp-register-code src)))))
+
+(define (emit-push asm reg)
+  (let ((reg (gp-register-code reg)))
+    (emit-optional-rex32 asm reg 0)
+    (emit-u8 asm (logior #x50 (logand reg #x7)))))
+
+(define (emit-pop asm reg)
+  (let ((reg (gp-register-code reg)))
+    (emit-optional-rex32 asm reg 0)
+    (emit-u8 asm (logior #x58 (logand reg #x7)))))
+
+(define (emit-save-registers asm)
+  (emit-push asm '&rbx)
+  (emit-push asm '&rbp)
+  (emit-push asm '&r12)
+  (emit-push asm '&r13)
+  (emit-push asm '&r14)
+  (emit-push asm '&r15))
+
+(define (emit-restore-registers asm)
+  (emit-pop asm '&r15)
+  (emit-pop asm '&r14)
+  (emit-pop asm '&r13)
+  (emit-pop asm '&r12)
+  (emit-pop asm '&rbp)
+  (emit-pop asm '&rbx))
 
 (define (emit-cvtsd2ss asm dst src)
   (emit-u8 asm #xf2)
@@ -680,12 +708,11 @@ up later by the assembler."
       (emit-jne asm label)
       (emit-je asm label)))
 
-(define (emit-return asm val)
+(define (emit-prepare-return asm val)
   (unless (eq? val '&rax)
-    (emit-mov asm '&rax val))
-  (emit-return-void asm))
+    (emit-mov asm '&rax val)))
 
-(define (emit-return-void asm)
+(define (emit-return asm)
   (emit-u8 asm #xc3))
 
 (define (emit-load-constant asm dst obj)

@@ -52,7 +52,6 @@
              (define (get-name val)
                (vector-ref #(name ...) val))))))))
 
-;; Only caller-save registers.
 (define-enumeration &registers register-name
   ;; rdi gets the first GPR argument, and so on up to r9.
   &rdi
@@ -62,10 +61,17 @@
   &r8
   &r9
   &rax
+  &rbx
+  &rbp
   &r10
   &r11
+  ;; We don't allocate r12 as it has the same low bits as rsp, and we
+  ;; don't bother handling that.
+  &r13
+  &r14
+  &r15
 
-  ;; Likewise, FPR arguments are passed in xmm0 to xmm7.
+  ;; FPR arguments are passed in xmm0 to xmm7.
   &xmm0
   &xmm1
   &xmm2
@@ -83,7 +89,7 @@
   &xmm14
   &xmm15)
 
-(define-syntax &gpr (identifier-syntax (1- (ash 1 (1+ &r11)))))
+(define-syntax &gpr (identifier-syntax (1- (ash 1 &xmm0))))
 (define-syntax &all-registers (identifier-syntax (1- (ash 1 &registers))))
 (define-syntax &fpr (identifier-syntax (logand &all-registers (lognot &gpr))))
 

@@ -82,6 +82,7 @@
         (($ $kclause ($ $arity req () #f () #f))
          (let ((k (cfa-k-sym cfa n)))
            (emit-label asm k)
+           (emit-save-registers asm)
            (compile-body (1+ n))))))
 
     (define (compile-body n)
@@ -133,12 +134,13 @@
 
     (define (compile-tail label exp)
       (match exp
-        (($ $values ())
-         (emit-return-void asm))
+        (($ $values ()) #t)
         (($ $values (arg))
-         (emit-return asm (reg arg)))
+         (emit-prepare-return asm (reg arg)))
         (($ $primcall 'return (arg))
-         (emit-return asm (reg arg)))))
+         (emit-prepare-return asm (reg arg))))
+      (emit-restore-registers asm)
+      (emit-return asm))
 
     (define (compile-value label exp dst)
       (match exp
