@@ -390,12 +390,12 @@ up later by the assembler."
 
 (define (emit-push asm reg)
   (let ((reg (gp-register-code reg)))
-    (emit-optional-rex32 asm reg 0)
+    (emit-optional-rex32 asm 0 reg)
     (emit-u8 asm (logior #x50 (logand reg #x7)))))
 
 (define (emit-pop asm reg)
   (let ((reg (gp-register-code reg)))
-    (emit-optional-rex32 asm reg 0)
+    (emit-optional-rex32 asm 0 reg)
     (emit-u8 asm (logior #x58 (logand reg #x7)))))
 
 (define (emit-save-registers asm)
