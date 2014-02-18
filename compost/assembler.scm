@@ -604,7 +604,7 @@ up later by the assembler."
 (define (emit-cmpq asm a b)
   (emit-rex64 asm a b)
   (emit-u8 asm #x3b)
-  (emit-modrm/reg asm b a))
+  (emit-modrm/reg asm a b))
 
 (define (emit-jge asm label)
   (emit-u8 asm #x0f)
@@ -642,6 +642,18 @@ up later by the assembler."
   (emit-u32 asm 0)
   (record-label-reference asm label -4))
 
+(define (emit-je asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x84)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
+(define (emit-jne asm label)
+  (emit-u8 asm #x0f)
+  (emit-u8 asm #x85)
+  (emit-u32 asm 0)
+  (record-label-reference asm label -4))
+
 (define (emit-br-if-true asm var invert? label)
   (error "unimplemented" 'br-if-true var))
 (define (emit-br-if-eq asm a b invert? label)
@@ -658,12 +670,15 @@ up later by the assembler."
    (else
     (emit-cmpq asm (gp-register-code a) (gp-register-code b))
     (if invert?
-        (emit-jle asm label)
-        (emit-jg asm label)))))
+        (emit-jge asm label)
+        (emit-jl asm label)))))
 (define (emit-br-if-<= asm a b invert? label)
   (error "unimplemented" 'br-if-<= a b))
 (define (emit-br-if-= asm a b invert? label)
-  (error "unimplemented" 'br-if-= a b))
+  (emit-cmpq asm (gp-register-code a) (gp-register-code b))
+  (if invert?
+      (emit-jne asm label)
+      (emit-je asm label)))
 
 (define (emit-return asm val)
   (unless (eq? val '&rax)

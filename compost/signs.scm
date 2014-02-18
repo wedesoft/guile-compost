@@ -71,8 +71,7 @@
       ((eqv? b &zero) a)
       ;; If we have both + and - we have 0 as well.
       ((eqv? (logior a b &zero) &all-signs) &all-signs)
-      ((eqv? a b) a)
-      (else (error "unhandled" a b))))
+      (else (logand a b))))
     (('sub a b) (primcall-result-sign 'add (list a (negate-sign b))))
     (('add1 a) (primcall-result-sign 'add (list a &positive)))
     (('sub1 a) (primcall-result-sign 'add (list a &negative)))
